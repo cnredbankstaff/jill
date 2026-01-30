@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACNH Villager Guesser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    body { box-sizing: border-box; }
+    * { font-family: 'Nunito', sans-serif; }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    @keyframes sparkle {
+      0%, 100% { opacity: 0; transform: scale(0); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    
+    .float-animation { animation: float 3s ease-in-out infinite; }
+    .shake { animation: shake 0.3s ease-in-out; }
+    
+    .hint-card {
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+    
+    .hint-card:hover {
+      transform: translateY(-2px);
+    }
+    
+    .guess-input:focus {
+      box-shadow: 0 0 0 3px rgba(139, 195, 74, 0.3);
+    }
+    
+    .suggestion-item:hover {
+      background: linear-gradient(135deg, #a8e063 0%, #56ab2f 100%);
+      color: white;
+    }
+    
+    .leaf-pattern {
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 Q35 15 30 25 Q25 15 30 5' fill='%2390caf9' opacity='0.1'/%3E%3C/svg%3E");
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full overflow-auto leaf-pattern" style="background-color: #e8f5e9;"><!-- Header -->
+   <div class="text-center py-6 px-4">
+    <div class="float-animation inline-block mb-2">
+     <svg width="60" height="60" viewbox="0 0 60 60"><ellipse cx="30" cy="35" rx="20" ry="18" fill="#8BC34A" /> <ellipse cx="30" cy="33" rx="16" ry="14" fill="#A5D6A7" /> <circle cx="24" cy="30" r="4" fill="#333" /> <circle cx="36" cy="30" r="4" fill="#333" /> <circle cx="25" cy="31" r="1.5" fill="#fff" /> <circle cx="37" cy="31" r="1.5" fill="#fff" /> <ellipse cx="30" cy="36" rx="3" ry="2" fill="#333" /> <path d="M22 38 Q30 44 38 38" stroke="#333" stroke-width="2" fill="none" /> <ellipse cx="18" cy="34" rx="4" ry="3" fill="#FFAB91" opacity="0.6" /> <ellipse cx="42" cy="34" rx="4" ry="3" fill="#FFAB91" opacity="0.6" />
+     </svg>
+    </div>
+    <h1 id="game-title" class="text-3xl md:text-4xl font-extrabold text-green-800 drop-shadow-sm">ACNH Villager Guesser</h1>
+    <p class="text-green-600 mt-1 text-sm md:text-base">Guess the villager from the hints!</p>
+   </div><!-- Score Display -->
+   <div class="flex justify-center gap-4 mb-4 px-4">
+    <div class="px-4 py-2 rounded-full shadow-md" style="background-color: #fff9c4;"><span class="text-amber-700 font-bold">🏆 Score: <span id="score">0</span></span>
+    </div>
+    <div class="px-4 py-2 rounded-full shadow-md" style="background-color: #ffccbc;"><span class="text-orange-700 font-bold">🎯 Streak: <span id="streak">0</span></span>
+    </div>
+   </div><!-- Game Area -->
+   <div class="max-w-2xl mx-auto px-4 pb-8"><!-- Hints Container -->
+    <div id="hints-container" class="rounded-2xl p-4 md:p-6 shadow-xl mb-4" style="background-color: #fffde7;">
+     <div class="flex justify-between items-center mb-4">
+      <h2 class="font-bold text-lg text-amber-800">🔍 Hints Revealed</h2><span id="hints-count" class="text-sm px-3 py-1 rounded-full font-semibold" style="background-color: #ffecb3; color: #f57c00;">0/8</span>
+     </div>
+     <div id="hints-grid" class="grid grid-cols-2 gap-3"><!-- Hints will be populated here -->
+     </div><button id="hint-btn" class="w-full mt-4 py-3 rounded-xl font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]" style="background: linear-gradient(135deg, #66BB6A 0%, #43A047 100%);"> 🍃 Get Hint </button>
+    </div><!-- Guess Input -->
+    <div class="rounded-2xl p-4 md:p-6 shadow-xl mb-4" style="background-color: #ffffff;"><label class="block text-green-800 font-bold mb-2">✏️ Your Guess</label>
+     <div class="relative"><input type="text" id="guess-input" class="guess-input w-full px-4 py-3 rounded-xl border-2 border-green-200 focus:border-green-400 outline-none text-lg" placeholder="Type villager name..." autocomplete="off">
+      <div id="suggestions" class="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden shadow-lg z-10 hidden" style="background-color: #fff;"><!-- Suggestions will appear here -->
+      </div>
+     </div><button id="submit-btn" class="w-full mt-3 py-3 rounded-xl font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]" style="background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%);"> 🎮 Submit Guess </button>
+    </div><!-- Result Message -->
+    <div id="result-container" class="hidden rounded-2xl p-6 shadow-xl text-center">
+     <div id="result-icon" class="text-6xl mb-3"></div>
+     <h3 id="result-title" class="text-2xl font-extrabold mb-2"></h3>
+     <p id="result-message" class="mb-4"></p><button id="next-btn" class="px-8 py-3 rounded-xl font-bold text-white transition-all hover:scale-[1.02]" style="background: linear-gradient(135deg, #AB47BC 0%, #8E24AA 100%);"> 🌟 Next Villager </button>
+    </div><!-- Give Up Button --> <button id="giveup-btn" class="w-full py-3 rounded-xl font-bold transition-all hover:scale-[1.02]" style="background-color: #ffcdd2; color: #c62828;"> 😿 Give Up </button>
+   </div>
+  </div>
+  <script>
+    // Default configuration
+    const defaultConfig = {
+      game_title: 'ACNH Villager Guesser',
+      hint_button_text: 'Get Hint',
+      background_color: '#e8f5e9',
+      card_color: '#fffde7',
+      text_color: '#2e7d32',
+      primary_action_color: '#43a047',
+      secondary_action_color: '#1e88e5',
+      font_family: 'Nunito',
+      font_size: 16
+    };
+
+    let config = { ...defaultConfig };
+
+    // All 413 ACNH Villagers Data
+    const villagers = [
+      // Alligators (7)
+      { name: "Alfonso", gender: "Male", species: "Alligator", personality: "Lazy", colors: ["Green"], styles: ["Simple", "Cute"], hobby: "Play", zodiac: "Gemini" },
+      { name: "Alli", gender: "Female", species: "Alligator", personality: "Snooty", colors: ["Pink", "Black"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Scorpio" },
+      { name: "Boots", gender: "Male", species: "Alligator", personality: "Jock", colors: ["Green", "Blue"], styles: ["Active", "Simple"], hobby: "Play", zodiac: "Leo" },
+      { name: "Del", gender: "Male", species: "Alligator", personality: "Cranky", colors: ["Black", "Blue"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Taurus" },
+      { name: "Drago", gender: "Male", species: "Alligator", personality: "Lazy", colors: ["Green", "Orange"], styles: ["Gorgeous", "Cool"], hobby: "Nature", zodiac: "Aquarius" },
+      { name: "Gayle", gender: "Female", species: "Alligator", personality: "Normal", colors: ["Pink", "Red"], styles: ["Cute", "Simple"], hobby: "Nature", zodiac: "Taurus" },
+      { name: "Sly", gender: "Male", species: "Alligator", personality: "Jock", colors: ["Green", "Black"], styles: ["Cool", "Active"], hobby: "Fitness", zodiac: "Scorpio" },
+      
+      // Anteaters (7)
+      { name: "Anabelle", gender: "Female", species: "Anteater", personality: "Peppy", colors: ["Beige", "Brown"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Aquarius" },
+      { name: "Annalisa", gender: "Female", species: "Anteater", personality: "Normal", colors: ["Pink", "Brown"], styles: ["Elegant", "Simple"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Antonio", gender: "Male", species: "Anteater", personality: "Jock", colors: ["Brown", "Green"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Libra" },
+      { name: "Cyrano", gender: "Male", species: "Anteater", personality: "Cranky", colors: ["Gray", "Brown"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Pisces" },
+      { name: "Olaf", gender: "Male", species: "Anteater", personality: "Smug", colors: ["White", "Blue"], styles: ["Elegant", "Cool"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Pango", gender: "Female", species: "Anteater", personality: "Peppy", colors: ["Blue", "Pink"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Scorpio" },
+      { name: "Snooty", gender: "Female", species: "Anteater", personality: "Snooty", colors: ["Purple", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Libra" },
+      
+      // Bears (15)
+      { name: "Beardo", gender: "Male", species: "Bear", personality: "Smug", colors: ["Brown", "Green"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Virgo" },
+      { name: "Charlise", gender: "Female", species: "Bear", personality: "Sisterly", colors: ["Green", "Orange"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Aries" },
+      { name: "Chow", gender: "Male", species: "Bear", personality: "Cranky", colors: ["White", "Red"], styles: ["Gorgeous", "Elegant"], hobby: "Play", zodiac: "Cancer" },
+      { name: "Curt", gender: "Male", species: "Bear", personality: "Cranky", colors: ["Brown", "Blue"], styles: ["Cool", "Simple"], hobby: "Nature", zodiac: "Cancer" },
+      { name: "Grizzly", gender: "Male", species: "Bear", personality: "Cranky", colors: ["Brown", "Green"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Cancer" },
+      { name: "Groucho", gender: "Male", species: "Bear", personality: "Cranky", colors: ["Black", "White"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Libra" },
+      { name: "Ike", gender: "Male", species: "Bear", personality: "Cranky", colors: ["Brown", "Blue"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Taurus" },
+      { name: "Klaus", gender: "Male", species: "Bear", personality: "Smug", colors: ["White", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Pisces" },
+      { name: "Megan", gender: "Female", species: "Bear", personality: "Normal", colors: ["Pink", "Purple"], styles: ["Cute", "Elegant"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Nate", gender: "Male", species: "Bear", personality: "Lazy", colors: ["Green", "Brown"], styles: ["Simple", "Active"], hobby: "Nature", zodiac: "Leo" },
+      { name: "Paula", gender: "Female", species: "Bear", personality: "Sisterly", colors: ["Brown", "Pink"], styles: ["Active", "Cute"], hobby: "Music", zodiac: "Pisces" },
+      { name: "Pinky", gender: "Female", species: "Bear", personality: "Peppy", colors: ["Pink", "White"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Virgo" },
+      { name: "Teddy", gender: "Male", species: "Bear", personality: "Jock", colors: ["Brown", "Red"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Virgo" },
+      { name: "Tutu", gender: "Female", species: "Bear", personality: "Peppy", colors: ["White", "Pink"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Virgo" },
+      { name: "Ursala", gender: "Female", species: "Bear", personality: "Sisterly", colors: ["Orange", "Brown"], styles: ["Active", "Simple"], hobby: "Music", zodiac: "Capricorn" },
+      
+      // Birds (13)
+      { name: "Admiral", gender: "Male", species: "Bird", personality: "Cranky", colors: ["Green", "Brown"], styles: ["Cool", "Simple"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Anchovy", gender: "Male", species: "Bird", personality: "Lazy", colors: ["Yellow", "Orange"], styles: ["Simple", "Active"], hobby: "Play", zodiac: "Pisces" },
+      { name: "Jacques", gender: "Male", species: "Bird", personality: "Smug", colors: ["Blue", "Black"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Jay", gender: "Male", species: "Bird", personality: "Jock", colors: ["Blue", "Green"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Cancer" },
+      { name: "Jitters", gender: "Male", species: "Bird", personality: "Jock", colors: ["Green", "Yellow"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Aquarius" },
+      { name: "Lucha", gender: "Male", species: "Bird", personality: "Smug", colors: ["Red", "Yellow"], styles: ["Active", "Cool"], hobby: "Music", zodiac: "Capricorn" },
+      { name: "Midge", gender: "Female", species: "Bird", personality: "Normal", colors: ["Pink", "White"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Peck", gender: "Male", species: "Bird", personality: "Jock", colors: ["Blue", "Red"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Cancer" },
+      { name: "Piper", gender: "Female", species: "Bird", personality: "Peppy", colors: ["White", "Pink"], styles: ["Cute", "Simple"], hobby: "Music", zodiac: "Aries" },
+      { name: "Robin", gender: "Female", species: "Bird", personality: "Snooty", colors: ["Blue", "Yellow"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Capricorn" },
+      { name: "Sparro", gender: "Male", species: "Bird", personality: "Jock", colors: ["Brown", "Red"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Scorpio" },
+      { name: "Twiggy", gender: "Female", species: "Bird", personality: "Peppy", colors: ["Yellow", "Green"], styles: ["Cute", "Active"], hobby: "Music", zodiac: "Cancer" },
+      { name: "Shoukichi", gender: "Male", species: "Bird", personality: "Lazy", colors: ["Yellow", "Orange"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Capricorn" },
+      
+      // Bulls (6)
+      { name: "Angus", gender: "Male", species: "Bull", personality: "Cranky", colors: ["Black", "Red"], styles: ["Cool", "Simple"], hobby: "Play", zodiac: "Taurus" },
+      { name: "Coach", gender: "Male", species: "Bull", personality: "Jock", colors: ["Blue", "Yellow"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Aries" },
+      { name: "Rodeo", gender: "Male", species: "Bull", personality: "Lazy", colors: ["Black", "Purple"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Libra" },
+      { name: "Stu", gender: "Male", species: "Bull", personality: "Lazy", colors: ["Brown", "Blue"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Aries" },
+      { name: "T-Bone", gender: "Male", species: "Bull", personality: "Cranky", colors: ["Gray", "Blue"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Taurus" },
+      { name: "Vic", gender: "Male", species: "Bull", personality: "Cranky", colors: ["Purple", "Brown"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Capricorn" },
+      
+      // Cats (23)
+      { name: "Ankha", gender: "Female", species: "Cat", personality: "Snooty", colors: ["Yellow", "Blue"], styles: ["Gorgeous", "Elegant"], hobby: "Nature", zodiac: "Virgo" },
+      { name: "Bob", gender: "Male", species: "Cat", personality: "Lazy", colors: ["Purple", "Blue"], styles: ["Cool", "Simple"], hobby: "Play", zodiac: "Capricorn" },
+      { name: "Felicity", gender: "Female", species: "Cat", personality: "Peppy", colors: ["Orange", "Red"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Pisces" },
+      { name: "Kabuki", gender: "Male", species: "Cat", personality: "Cranky", colors: ["White", "Red"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Scorpio" },
+      { name: "Katt", gender: "Female", species: "Cat", personality: "Sisterly", colors: ["Purple", "Black"], styles: ["Cool", "Active"], hobby: "Music", zodiac: "Aries" },
+      { name: "Kiki", gender: "Female", species: "Cat", personality: "Normal", colors: ["Black", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Libra" },
+      { name: "Kitty", gender: "Female", species: "Cat", personality: "Snooty", colors: ["White", "Red"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Lolly", gender: "Female", species: "Cat", personality: "Normal", colors: ["Gray", "White"], styles: ["Simple", "Cute"], hobby: "Music", zodiac: "Pisces" },
+      { name: "Merry", gender: "Female", species: "Cat", personality: "Peppy", colors: ["Pink", "Red"], styles: ["Cute", "Gorgeous"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Mitzi", gender: "Female", species: "Cat", personality: "Normal", colors: ["Beige", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Virgo" },
+      { name: "Moe", gender: "Male", species: "Cat", personality: "Lazy", colors: ["Blue", "Gray"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Capricorn" },
+      { name: "Monique", gender: "Female", species: "Cat", personality: "Snooty", colors: ["Yellow", "Black"], styles: ["Gorgeous", "Elegant"], hobby: "Fashion", zodiac: "Virgo" },
+      { name: "Olivia", gender: "Female", species: "Cat", personality: "Snooty", colors: ["White", "Black"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Punchy", gender: "Male", species: "Cat", personality: "Lazy", colors: ["Black", "Blue"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Aries" },
+      { name: "Purrl", gender: "Female", species: "Cat", personality: "Snooty", colors: ["Gray", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Taurus" },
+      { name: "Raymond", gender: "Male", species: "Cat", personality: "Smug", colors: ["Gray", "Black"], styles: ["Elegant", "Cool"], hobby: "Nature", zodiac: "Libra" },
+      { name: "Rosie", gender: "Female", species: "Cat", personality: "Peppy", colors: ["Blue", "Purple"], styles: ["Cute", "Active"], hobby: "Music", zodiac: "Aquarius" },
+      { name: "Rudy", gender: "Male", species: "Cat", personality: "Jock", colors: ["Red", "Orange"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Capricorn" },
+      { name: "Stinky", gender: "Male", species: "Cat", personality: "Jock", colors: ["Black", "Blue"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Leo" },
+      { name: "Tabby", gender: "Female", species: "Cat", personality: "Peppy", colors: ["Orange", "Yellow"], styles: ["Active", "Cute"], hobby: "Music", zodiac: "Leo" },
+      { name: "Tangy", gender: "Female", species: "Cat", personality: "Peppy", colors: ["Orange", "Yellow"], styles: ["Cute", "Active"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Tom", gender: "Male", species: "Cat", personality: "Cranky", colors: ["White", "Blue"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Kid Cat", gender: "Male", species: "Cat", personality: "Jock", colors: ["Red", "Blue"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Leo" },
+      
+      // Chickens (9)
+      { name: "Ava", gender: "Female", species: "Chicken", personality: "Normal", colors: ["Brown", "Beige"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Aries" },
+      { name: "Becky", gender: "Female", species: "Chicken", personality: "Snooty", colors: ["Red", "Yellow"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Capricorn" },
+      { name: "Benedict", gender: "Male", species: "Chicken", personality: "Lazy", colors: ["Yellow", "Green"], styles: ["Simple", "Active"], hobby: "Play", zodiac: "Libra" },
+      { name: "Broffina", gender: "Female", species: "Chicken", personality: "Snooty", colors: ["Yellow", "Pink"], styles: ["Gorgeous", "Elegant"], hobby: "Fashion", zodiac: "Libra" },
+      { name: "Egbert", gender: "Male", species: "Chicken", personality: "Lazy", colors: ["Yellow", "Blue"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Libra" },
+      { name: "Goose", gender: "Male", species: "Chicken", personality: "Jock", colors: ["White", "Red"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Libra" },
+      { name: "Ken", gender: "Male", species: "Chicken", personality: "Smug", colors: ["Brown", "Green"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Capricorn" },
+      { name: "Knox", gender: "Male", species: "Chicken", personality: "Cranky", colors: ["Yellow", "Gray"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Sagittarius" },
+      { name: "Plucky", gender: "Female", species: "Chicken", personality: "Sisterly", colors: ["Brown", "Yellow"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Libra" },
+      
+      // Cows (4)
+      { name: "Naomi", gender: "Female", species: "Cow", personality: "Snooty", colors: ["Black", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Aquarius" },
+      { name: "Norma", gender: "Female", species: "Cow", personality: "Normal", colors: ["Brown", "Pink"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Virgo" },
+      { name: "Patty", gender: "Female", species: "Cow", personality: "Peppy", colors: ["Brown", "Yellow"], styles: ["Cute", "Simple"], hobby: "Music", zodiac: "Taurus" },
+      { name: "Tipper", gender: "Female", species: "Cow", personality: "Snooty", colors: ["White", "Black"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Leo" },
+      
+      // Cubs (16)
+      { name: "Barold", gender: "Male", species: "Cub", personality: "Lazy", colors: ["Brown", "Green"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Bluebear", gender: "Female", species: "Cub", personality: "Peppy", colors: ["Blue", "Pink"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Gemini" },
+      { name: "Cheri", gender: "Female", species: "Cub", personality: "Peppy", colors: ["Pink", "Red"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Pisces" },
+      { name: "Chester", gender: "Male", species: "Cub", personality: "Lazy", colors: ["Black", "White"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Aries" },
+      { name: "Cupcake", gender: "Female", species: "Cub", personality: "Snooty", colors: ["Pink", "White"], styles: ["Gorgeous", "Cute"], hobby: "Fashion", zodiac: "Aries" },
+      { name: "Judy", gender: "Female", species: "Cub", personality: "Snooty", colors: ["Pink", "Purple"], styles: ["Gorgeous", "Elegant"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "June", gender: "Female", species: "Cub", personality: "Normal", colors: ["Beige", "Pink"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Taurus" },
+      { name: "Kody", gender: "Male", species: "Cub", personality: "Jock", colors: ["Green", "Blue"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Virgo" },
+      { name: "Maple", gender: "Female", species: "Cub", personality: "Normal", colors: ["Brown", "Beige"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Murphy", gender: "Male", species: "Cub", personality: "Cranky", colors: ["Brown", "Green"], styles: ["Simple", "Cool"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Olive", gender: "Female", species: "Cub", personality: "Normal", colors: ["Brown", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Cancer" },
+      { name: "Pekoe", gender: "Female", species: "Cub", personality: "Normal", colors: ["White", "Aqua"], styles: ["Simple", "Elegant"], hobby: "Education", zodiac: "Taurus" },
+      { name: "Poncho", gender: "Male", species: "Cub", personality: "Jock", colors: ["Blue", "Red"], styles: ["Active", "Simple"], hobby: "Play", zodiac: "Capricorn" },
+      { name: "Pudge", gender: "Male", species: "Cub", personality: "Lazy", colors: ["Brown", "White"], styles: ["Simple", "Cute"], hobby: "Play", zodiac: "Gemini" },
+      { name: "Stitches", gender: "Male", species: "Cub", personality: "Lazy", colors: ["Colorful", "Orange"], styles: ["Cute", "Active"], hobby: "Play", zodiac: "Aquarius" },
+      { name: "Tammy", gender: "Female", species: "Cub", personality: "Sisterly", colors: ["Pink", "Orange"], styles: ["Active", "Cute"], hobby: "Fitness", zodiac: "Gemini" },
+      
+      // Deer (10)
+      { name: "Bam", gender: "Male", species: "Deer", personality: "Jock", colors: ["Blue", "Green"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Scorpio" },
+      { name: "Beau", gender: "Male", species: "Deer", personality: "Lazy", colors: ["Beige", "Green"], styles: ["Simple", "Natural"], hobby: "Nature", zodiac: "Aries" },
+      { name: "Bruce", gender: "Male", species: "Deer", personality: "Cranky", colors: ["Blue", "Black"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Taurus" },
+      { name: "Chelsea", gender: "Female", species: "Deer", personality: "Normal", colors: ["White", "Pink"], styles: ["Cute", "Simple"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Deirdre", gender: "Female", species: "Deer", personality: "Sisterly", colors: ["Blue", "Green"], styles: ["Cool", "Active"], hobby: "Music", zodiac: "Taurus" },
+      { name: "Diana", gender: "Female", species: "Deer", personality: "Snooty", colors: ["White", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Erik", gender: "Male", species: "Deer", personality: "Lazy", colors: ["Brown", "Green"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Cancer" },
+      { name: "Fauna", gender: "Female", species: "Deer", personality: "Normal", colors: ["Beige", "Pink"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Pisces" },
+      { name: "Fuchsia", gender: "Female", species: "Deer", personality: "Sisterly", colors: ["Pink", "Purple"], styles: ["Cool", "Active"], hobby: "Music", zodiac: "Virgo" },
+      { name: "Lopez", gender: "Male", species: "Deer", personality: "Smug", colors: ["Blue", "Yellow"], styles: ["Elegant", "Cool"], hobby: "Education", zodiac: "Leo" },
+      { name: "Shino", gender: "Female", species: "Deer", personality: "Peppy", colors: ["White", "Red"], styles: ["Elegant", "Gorgeous"], hobby: "Music", zodiac: "Leo" },
+      { name: "Zell", gender: "Male", species: "Deer", personality: "Smug", colors: ["Black", "Purple"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Gemini" },
+      
+      // Dogs (16)
+      { name: "Bea", gender: "Female", species: "Dog", personality: "Normal", colors: ["Brown", "Beige"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Libra" },
+      { name: "Benjamin", gender: "Male", species: "Dog", personality: "Lazy", colors: ["Beige", "Green"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Leo" },
+      { name: "Biskit", gender: "Male", species: "Dog", personality: "Lazy", colors: ["Yellow", "Green"], styles: ["Simple", "Active"], hobby: "Play", zodiac: "Taurus" },
+      { name: "Bones", gender: "Male", species: "Dog", personality: "Lazy", colors: ["White", "Orange"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Leo" },
+      { name: "Butch", gender: "Male", species: "Dog", personality: "Cranky", colors: ["Black", "Brown"], styles: ["Cool", "Simple"], hobby: "Nature", zodiac: "Scorpio" },
+      { name: "Cherry", gender: "Female", species: "Dog", personality: "Sisterly", colors: ["Red", "Black"], styles: ["Cool", "Active"], hobby: "Music", zodiac: "Taurus" },
+      { name: "Cookie", gender: "Female", species: "Dog", personality: "Peppy", colors: ["Pink", "Brown"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Gemini" },
+      { name: "Daisy", gender: "Female", species: "Dog", personality: "Normal", colors: ["White", "Yellow"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Scorpio" },
+      { name: "Goldie", gender: "Female", species: "Dog", personality: "Normal", colors: ["Yellow", "Orange"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Lucky", gender: "Male", species: "Dog", personality: "Lazy", colors: ["White", "Orange"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Scorpio" },
+      { name: "Mac", gender: "Male", species: "Dog", personality: "Jock", colors: ["Brown", "Blue"], styles: ["Active", "Simple"], hobby: "Play", zodiac: "Scorpio" },
+      { name: "Marcel", gender: "Male", species: "Dog", personality: "Lazy", colors: ["White", "Black"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Capricorn" },
+      { name: "Maddie", gender: "Female", species: "Dog", personality: "Peppy", colors: ["Brown", "Yellow"], styles: ["Cute", "Simple"], hobby: "Play", zodiac: "Capricorn" },
+      { name: "Portia", gender: "Female", species: "Dog", personality: "Snooty", colors: ["Black", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Libra" },
+      { name: "Shep", gender: "Male", species: "Dog", personality: "Smug", colors: ["Blue", "Gray"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Scorpio" },
+      { name: "Walker", gender: "Male", species: "Dog", personality: "Lazy", colors: ["White", "Orange"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Gemini" },
+      
+      // Ducks (17)
+      { name: "Bill", gender: "Male", species: "Duck", personality: "Jock", colors: ["Green", "Blue"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Aquarius" },
+      { name: "Deena", gender: "Female", species: "Duck", personality: "Normal", colors: ["Brown", "Green"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Derwin", gender: "Male", species: "Duck", personality: "Lazy", colors: ["Blue", "Green"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Taurus" },
+      { name: "Drake", gender: "Male", species: "Duck", personality: "Lazy", colors: ["Green", "Brown"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Gemini" },
+      { name: "Freckles", gender: "Female", species: "Duck", personality: "Peppy", colors: ["Yellow", "Pink"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Aquarius" },
+      { name: "Gloria", gender: "Female", species: "Duck", personality: "Snooty", colors: ["Blue", "Yellow"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Leo" },
+      { name: "Joey", gender: "Male", species: "Duck", personality: "Lazy", colors: ["Yellow", "Blue"], styles: ["Simple", "Cute"], hobby: "Play", zodiac: "Capricorn" },
+      { name: "Ketchup", gender: "Female", species: "Duck", personality: "Peppy", colors: ["Red", "Green"], styles: ["Cute", "Active"], hobby: "Play", zodiac: "Cancer" },
+      { name: "Maelle", gender: "Female", species: "Duck", personality: "Snooty", colors: ["Yellow", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Aries" },
+      { name: "Mallary", gender: "Female", species: "Duck", personality: "Snooty", colors: ["Green", "Purple"], styles: ["Elegant", "Cool"], hobby: "Fashion", zodiac: "Scorpio" },
+      { name: "Miranda", gender: "Female", species: "Duck", personality: "Snooty", colors: ["Pink", "Red"], styles: ["Gorgeous", "Elegant"], hobby: "Fashion", zodiac: "Aries" },
+      { name: "Molly", gender: "Female", species: "Duck", personality: "Normal", colors: ["Brown", "Green"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Pate", gender: "Female", species: "Duck", personality: "Peppy", colors: ["Blue", "Yellow"], styles: ["Cute", "Simple"], hobby: "Music", zodiac: "Aquarius" },
+      { name: "Pompom", gender: "Female", species: "Duck", personality: "Peppy", colors: ["Pink", "Blue"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Aquarius" },
+      { name: "Quillson", gender: "Male", species: "Duck", personality: "Smug", colors: ["Green", "Blue"], styles: ["Elegant", "Cool"], hobby: "Music", zodiac: "Capricorn" },
+      { name: "Scoot", gender: "Male", species: "Duck", personality: "Jock", colors: ["Green", "Blue"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Gemini" },
+      { name: "Weber", gender: "Male", species: "Duck", personality: "Lazy", colors: ["Brown", "White"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Gemini" },
+      
+      // Eagles (9)
+      { name: "Amelia", gender: "Female", species: "Eagle", personality: "Snooty", colors: ["Red", "Brown"], styles: ["Elegant", "Cool"], hobby: "Fashion", zodiac: "Scorpio" },
+      { name: "Apollo", gender: "Male", species: "Eagle", personality: "Cranky", colors: ["White", "Blue"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Cancer" },
+      { name: "Avery", gender: "Male", species: "Eagle", personality: "Cranky", colors: ["Black", "Brown"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Aquarius" },
+      { name: "Buzz", gender: "Male", species: "Eagle", personality: "Cranky", colors: ["Brown", "Green"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Capricorn" },
+      { name: "Celia", gender: "Female", species: "Eagle", personality: "Normal", colors: ["White", "Green"], styles: ["Simple", "Elegant"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Frank", gender: "Male", species: "Eagle", personality: "Cranky", colors: ["Green", "Brown"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Cancer" },
+      { name: "Keaton", gender: "Male", species: "Eagle", personality: "Smug", colors: ["Green", "Yellow"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Pierce", gender: "Male", species: "Eagle", personality: "Jock", colors: ["Blue", "White"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Capricorn" },
+      { name: "Sterling", gender: "Male", species: "Eagle", personality: "Jock", colors: ["Gray", "Blue"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Sagittarius" },
+      
+      // Elephants (11)
+      { name: "Axel", gender: "Male", species: "Elephant", personality: "Jock", colors: ["Blue", "Black"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Pisces" },
+      { name: "Big Top", gender: "Male", species: "Elephant", personality: "Lazy", colors: ["Blue", "Colorful"], styles: ["Active", "Cute"], hobby: "Play", zodiac: "Libra" },
+      { name: "Chai", gender: "Female", species: "Elephant", personality: "Peppy", colors: ["White", "Pink"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Pisces" },
+      { name: "Cyd", gender: "Male", species: "Elephant", personality: "Cranky", colors: ["Red", "Black"], styles: ["Cool", "Active"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Dizzy", gender: "Male", species: "Elephant", personality: "Lazy", colors: ["Blue", "Yellow"], styles: ["Simple", "Cute"], hobby: "Play", zodiac: "Cancer" },
+      { name: "Ellie", gender: "Female", species: "Elephant", personality: "Normal", colors: ["Blue", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Taurus" },
+      { name: "Eloise", gender: "Female", species: "Elephant", personality: "Snooty", colors: ["Yellow", "Red"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Sagittarius" },
+      { name: "Margie", gender: "Female", species: "Elephant", personality: "Normal", colors: ["White", "Yellow"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Opal", gender: "Female", species: "Elephant", personality: "Snooty", colors: ["Pink", "Blue"], styles: ["Elegant", "Gorgeous"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Paolo", gender: "Male", species: "Elephant", personality: "Lazy", colors: ["Blue", "Orange"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Taurus" },
+      { name: "Tia", gender: "Female", species: "Elephant", personality: "Normal", colors: ["Blue", "Yellow"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Sagittarius" },
+      
+      // Frogs (18)
+      { name: "Camofrog", gender: "Male", species: "Frog", personality: "Cranky", colors: ["Green", "Brown"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Cousteau", gender: "Male", species: "Frog", personality: "Jock", colors: ["Green", "Yellow"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Sagittarius" },
+      { name: "Croque", gender: "Male", species: "Frog", personality: "Cranky", colors: ["Orange", "Green"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Cancer" },
+      { name: "Diva", gender: "Female", species: "Frog", personality: "Sisterly", colors: ["Purple", "Pink"], styles: ["Cool", "Gorgeous"], hobby: "Music", zodiac: "Libra" },
+      { name: "Drift", gender: "Male", species: "Frog", personality: "Jock", colors: ["Green", "Yellow"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Libra" },
+      { name: "Frobert", gender: "Male", species: "Frog", personality: "Jock", colors: ["Blue", "Purple"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Aquarius" },
+      { name: "Gigi", gender: "Female", species: "Frog", personality: "Snooty", colors: ["Pink", "Red"], styles: ["Gorgeous", "Elegant"], hobby: "Fashion", zodiac: "Leo" },
+      { name: "Henry", gender: "Male", species: "Frog", personality: "Smug", colors: ["Green", "Brown"], styles: ["Elegant", "Simple"], hobby: "Music", zodiac: "Virgo" },
+      { name: "Huck", gender: "Male", species: "Frog", personality: "Smug", colors: ["Green", "Orange"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Cancer" },
+      { name: "Jambette", gender: "Female", species: "Frog", personality: "Normal", colors: ["Pink", "Red"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Libra" },
+      { name: "Jeremiah", gender: "Male", species: "Frog", personality: "Lazy", colors: ["Blue", "Green"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Cancer" },
+      { name: "Lily", gender: "Female", species: "Frog", personality: "Normal", colors: ["Green", "Yellow"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Prince", gender: "Male", species: "Frog", personality: "Lazy", colors: ["Green", "Red"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Cancer" },
+      { name: "Puddles", gender: "Female", species: "Frog", personality: "Peppy", colors: ["Pink", "Green"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Capricorn" },
+      { name: "Raddle", gender: "Male", species: "Frog", personality: "Lazy", colors: ["Orange", "Black"], styles: ["Cool", "Simple"], hobby: "Nature", zodiac: "Gemini" },
+      { name: "Ribbot", gender: "Male", species: "Frog", personality: "Jock", colors: ["Green", "Yellow"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Aquarius" },
+      { name: "Tad", gender: "Male", species: "Frog", personality: "Jock", colors: ["Green", "Orange"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Leo" },
+      { name: "Wart Jr.", gender: "Male", species: "Frog", personality: "Cranky", colors: ["Brown", "Green"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Leo" },
+      
+      // Goats (8)
+      { name: "Billy", gender: "Male", species: "Goat", personality: "Jock", colors: ["Blue", "Green"], styles: ["Active", "Simple"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Chevre", gender: "Female", species: "Goat", personality: "Normal", colors: ["White", "Green"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Pisces" },
+      { name: "Gruff", gender: "Male", species: "Goat", personality: "Cranky", colors: ["Brown", "Green"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Libra" },
+      { name: "Kidd", gender: "Male", species: "Goat", personality: "Smug", colors: ["Brown", "Blue"], styles: ["Cool", "Elegant"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Nan", gender: "Female", species: "Goat", personality: "Normal", colors: ["Black", "White"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Leo" },
+      { name: "Pashmina", gender: "Female", species: "Goat", personality: "Sisterly", colors: ["Brown", "Pink"], styles: ["Active", "Cool"], hobby: "Music", zodiac: "Sagittarius" },
+      { name: "Sherb", gender: "Male", species: "Goat", personality: "Lazy", colors: ["Blue", "Aqua"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Velma", gender: "Female", species: "Goat", personality: "Snooty", colors: ["Gray", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Capricorn" },
+      
+      // Gorillas (9)
+      { name: "Al", gender: "Male", species: "Gorilla", personality: "Lazy", colors: ["Blue", "Green"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Libra" },
+      { name: "Boone", gender: "Male", species: "Gorilla", personality: "Jock", colors: ["Blue", "Brown"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Virgo" },
+      { name: "Boyd", gender: "Male", species: "Gorilla", personality: "Cranky", colors: ["Purple", "Yellow"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Libra" },
+      { name: "Cesar", gender: "Male", species: "Gorilla", personality: "Cranky", colors: ["Brown", "Red"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Virgo" },
+      { name: "Hans", gender: "Male", species: "Gorilla", personality: "Smug", colors: ["White", "Blue"], styles: ["Cool", "Elegant"], hobby: "Fitness", zodiac: "Sagittarius" },
+      { name: "Louie", gender: "Male", species: "Gorilla", personality: "Jock", colors: ["Brown", "Green"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Pisces" },
+      { name: "Peewee", gender: "Male", species: "Gorilla", personality: "Cranky", colors: ["Brown", "Orange"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Virgo" },
+      { name: "Rilla", gender: "Female", species: "Gorilla", personality: "Peppy", colors: ["Pink", "White"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Scorpio" },
+      { name: "Rocket", gender: "Female", species: "Gorilla", personality: "Sisterly", colors: ["Pink", "Yellow"], styles: ["Active", "Cute"], hobby: "Fitness", zodiac: "Aries" },
+      { name: "Violet", gender: "Female", species: "Gorilla", personality: "Snooty", colors: ["Purple", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fitness", zodiac: "Virgo" },
+      
+      // Hamsters (8)
+      { name: "Apple", gender: "Female", species: "Hamster", personality: "Peppy", colors: ["Red", "White"], styles: ["Cute", "Active"], hobby: "Play", zodiac: "Virgo" },
+      { name: "Clay", gender: "Male", species: "Hamster", personality: "Lazy", colors: ["Orange", "Brown"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Libra" },
+      { name: "Flurry", gender: "Female", species: "Hamster", personality: "Normal", colors: ["White", "Pink"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Graham", gender: "Male", species: "Hamster", personality: "Smug", colors: ["Yellow", "Brown"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Hamlet", gender: "Male", species: "Hamster", personality: "Jock", colors: ["Orange", "White"], styles: ["Active", "Cute"], hobby: "Play", zodiac: "Taurus" },
+      { name: "Hamphrey", gender: "Male", species: "Hamster", personality: "Cranky", colors: ["Gray", "White"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Marlo", gender: "Male", species: "Hamster", personality: "Cranky", colors: ["Gray", "White"], styles: ["Elegant", "Cool"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Rodney", gender: "Male", species: "Hamster", personality: "Smug", colors: ["Blue", "Pink"], styles: ["Cool", "Cute"], hobby: "Music", zodiac: "Scorpio" },
+      { name: "Soleil", gender: "Female", species: "Hamster", personality: "Snooty", colors: ["Orange", "Yellow"], styles: ["Elegant", "Gorgeous"], hobby: "Music", zodiac: "Leo" },
+      
+      // Hippos (7)
+      { name: "Bertha", gender: "Female", species: "Hippo", personality: "Normal", colors: ["Blue", "Pink"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Aries" },
+      { name: "Bitty", gender: "Female", species: "Hippo", personality: "Snooty", colors: ["Purple", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Libra" },
+      { name: "Biff", gender: "Male", species: "Hippo", personality: "Jock", colors: ["Brown", "Green"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Aries" },
+      { name: "Bubbles", gender: "Female", species: "Hippo", personality: "Peppy", colors: ["Pink", "White"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Virgo" },
+      { name: "Harry", gender: "Male", species: "Hippo", personality: "Cranky", colors: ["Gray", "Brown"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Hippeux", gender: "Male", species: "Hippo", personality: "Smug", colors: ["Yellow", "Green"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Libra" },
+      { name: "Rocco", gender: "Male", species: "Hippo", personality: "Cranky", colors: ["Gray", "Purple"], styles: ["Cool", "Simple"], hobby: "Nature", zodiac: "Leo" },
+      
+      // Horses (15)
+      { name: "Annalise", gender: "Female", species: "Horse", personality: "Snooty", colors: ["Brown", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Sagittarius" },
+      { name: "Buck", gender: "Male", species: "Horse", personality: "Jock", colors: ["Green", "Blue"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Aries" },
+      { name: "Cleo", gender: "Female", species: "Horse", personality: "Snooty", colors: ["Brown", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Clyde", gender: "Male", species: "Horse", personality: "Lazy", colors: ["Blue", "Green"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Taurus" },
+      { name: "Colton", gender: "Male", species: "Horse", personality: "Smug", colors: ["Brown", "Blue"], styles: ["Elegant", "Cool"], hobby: "Education", zodiac: "Taurus" },
+      { name: "Ed", gender: "Male", species: "Horse", personality: "Smug", colors: ["Yellow", "Green"], styles: ["Cool", "Elegant"], hobby: "Nature", zodiac: "Virgo" },
+      { name: "Elmer", gender: "Male", species: "Horse", personality: "Lazy", colors: ["Brown", "Yellow"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Libra" },
+      { name: "Frett", gender: "Male", species: "Horse", personality: "Lazy", colors: ["Brown", "Green"], styles: ["Simple", "Cool"], hobby: "Education", zodiac: "Cancer" },
+      { name: "Julian", gender: "Male", species: "Horse", personality: "Smug", colors: ["Blue", "Purple"], styles: ["Gorgeous", "Elegant"], hobby: "Music", zodiac: "Pisces" },
+      { name: "Papi", gender: "Male", species: "Horse", personality: "Lazy", colors: ["Brown", "Beige"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Peaches", gender: "Female", species: "Horse", personality: "Normal", colors: ["Pink", "White"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Scorpio" },
+      { name: "Reneigh", gender: "Female", species: "Horse", personality: "Sisterly", colors: ["Black", "Purple"], styles: ["Cool", "Elegant"], hobby: "Fashion", zodiac: "Gemini" },
+      { name: "Roscoe", gender: "Male", species: "Horse", personality: "Cranky", colors: ["Black", "Blue"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Savannah", gender: "Female", species: "Horse", personality: "Normal", colors: ["Yellow", "Brown"], styles: ["Simple", "Cute"], hobby: "Music", zodiac: "Capricorn" },
+      { name: "Victoria", gender: "Female", species: "Horse", personality: "Peppy", colors: ["Brown", "Yellow"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Cancer" },
+      { name: "Winnie", gender: "Female", species: "Horse", personality: "Peppy", colors: ["Brown", "Yellow"], styles: ["Active", "Cute"], hobby: "Fashion", zodiac: "Capricorn" },
+      
+      // Kangaroos (8)
+      { name: "Astrid", gender: "Female", species: "Kangaroo", personality: "Snooty", colors: ["Gray", "Yellow"], styles: ["Elegant", "Gorgeous"], hobby: "Music", zodiac: "Virgo" },
+      { name: "Carrie", gender: "Female", species: "Kangaroo", personality: "Normal", colors: ["Yellow", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Sagittarius" },
+      { name: "Kitt", gender: "Female", species: "Kangaroo", personality: "Normal", colors: ["Purple", "Brown"], styles: ["Simple", "Elegant"], hobby: "Education", zodiac: "Libra" },
+      { name: "Koharu", gender: "Female", species: "Kangaroo", personality: "Normal", colors: ["Pink", "Yellow"], styles: ["Simple", "Cute"], hobby: "Fashion", zodiac: "Pisces" },
+      { name: "Marcie", gender: "Female", species: "Kangaroo", personality: "Normal", colors: ["Pink", "Yellow"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Taurus" },
+      { name: "Mathilda", gender: "Female", species: "Kangaroo", personality: "Snooty", colors: ["Purple", "Black"], styles: ["Cool", "Gorgeous"], hobby: "Music", zodiac: "Scorpio" },
+      { name: "Rooney", gender: "Male", species: "Kangaroo", personality: "Cranky", colors: ["Brown", "Red"], styles: ["Cool", "Active"], hobby: "Fitness", zodiac: "Sagittarius" },
+      { name: "Sylvia", gender: "Female", species: "Kangaroo", personality: "Sisterly", colors: ["Purple", "Blue"], styles: ["Active", "Cool"], hobby: "Music", zodiac: "Taurus" },
+      { name: "Walt", gender: "Male", species: "Kangaroo", personality: "Cranky", colors: ["Brown", "Green"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Aries" },
+      
+      // Koalas (9)
+      { name: "Alice", gender: "Female", species: "Koala", personality: "Normal", colors: ["Blue", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Leo" },
+      { name: "Canberra", gender: "Female", species: "Koala", personality: "Sisterly", colors: ["Brown", "Green"], styles: ["Active", "Cool"], hobby: "Nature", zodiac: "Taurus" },
+      { name: "Eugene", gender: "Male", species: "Koala", personality: "Smug", colors: ["Brown", "Black"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Libra" },
+      { name: "Faith", gender: "Female", species: "Koala", personality: "Normal", colors: ["Aqua", "Pink"], styles: ["Cute", "Simple"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Gonzo", gender: "Male", species: "Koala", personality: "Cranky", colors: ["Gray", "Green"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Libra" },
+      { name: "Lyman", gender: "Male", species: "Koala", personality: "Jock", colors: ["Green", "Brown"], styles: ["Active", "Simple"], hobby: "Nature", zodiac: "Libra" },
+      { name: "Melba", gender: "Female", species: "Koala", personality: "Normal", colors: ["Brown", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Aries" },
+      { name: "Ozzie", gender: "Male", species: "Koala", personality: "Lazy", colors: ["Brown", "Blue"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Taurus" },
+      { name: "Sydney", gender: "Female", species: "Koala", personality: "Normal", colors: ["Gray", "Purple"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Yuka", gender: "Female", species: "Koala", personality: "Snooty", colors: ["Blue", "White"], styles: ["Elegant", "Simple"], hobby: "Education", zodiac: "Cancer" },
+      
+      // Lions (7)
+      { name: "Bud", gender: "Male", species: "Lion", personality: "Jock", colors: ["Yellow", "Green"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Leo" },
+      { name: "Elvis", gender: "Male", species: "Lion", personality: "Cranky", colors: ["Yellow", "Red"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Cancer" },
+      { name: "Leopold", gender: "Male", species: "Lion", personality: "Smug", colors: ["Yellow", "Blue"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Leo" },
+      { name: "Lionel", gender: "Male", species: "Lion", personality: "Smug", colors: ["Red", "Yellow"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Cancer" },
+      { name: "Mott", gender: "Male", species: "Lion", personality: "Jock", colors: ["Green", "Yellow"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Cancer" },
+      { name: "Rex", gender: "Male", species: "Lion", personality: "Lazy", colors: ["Brown", "Orange"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Cancer" },
+      { name: "Rory", gender: "Male", species: "Lion", personality: "Jock", colors: ["Orange", "Yellow"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Leo" },
+      
+      // Mice (15)
+      { name: "Anicotti", gender: "Female", species: "Mouse", personality: "Peppy", colors: ["Pink", "Yellow"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Aquarius" },
+      { name: "Bella", gender: "Female", species: "Mouse", personality: "Peppy", colors: ["White", "Green"], styles: ["Cute", "Active"], hobby: "Play", zodiac: "Capricorn" },
+      { name: "Bettina", gender: "Female", species: "Mouse", personality: "Normal", colors: ["Beige", "Pink"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Broccolo", gender: "Male", species: "Mouse", personality: "Lazy", colors: ["Green", "Brown"], styles: ["Simple", "Cute"], hobby: "Play", zodiac: "Gemini" },
+      { name: "Chadder", gender: "Male", species: "Mouse", personality: "Smug", colors: ["Yellow", "Orange"], styles: ["Elegant", "Cool"], hobby: "Music", zodiac: "Sagittarius" },
+      { name: "Dora", gender: "Female", species: "Mouse", personality: "Normal", colors: ["Brown", "Pink"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Greta", gender: "Female", species: "Mouse", personality: "Snooty", colors: ["Brown", "Yellow"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Virgo" },
+      { name: "Limberg", gender: "Male", species: "Mouse", personality: "Cranky", colors: ["Gray", "Brown"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Libra" },
+      { name: "Moose", gender: "Male", species: "Mouse", personality: "Jock", colors: ["Blue", "Yellow"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Virgo" },
+      { name: "Penelope", gender: "Female", species: "Mouse", personality: "Peppy", colors: ["Yellow", "Pink"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Aquarius" },
+      { name: "Petri", gender: "Female", species: "Mouse", personality: "Snooty", colors: ["White", "Pink"], styles: ["Elegant", "Simple"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Rizzo", gender: "Male", species: "Mouse", personality: "Cranky", colors: ["Blue", "Gray"], styles: ["Cool", "Simple"], hobby: "Play", zodiac: "Capricorn" },
+      { name: "Rod", gender: "Male", species: "Mouse", personality: "Jock", colors: ["Orange", "Blue"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Leo" },
+      { name: "Samson", gender: "Male", species: "Mouse", personality: "Jock", colors: ["Yellow", "Blue"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Cancer" },
+      { name: "Bree", gender: "Female", species: "Mouse", personality: "Snooty", colors: ["Yellow", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Cancer" },
+      
+      // Monkeys (8)
+      { name: "Deli", gender: "Male", species: "Monkey", personality: "Lazy", colors: ["Brown", "Green"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Taurus" },
+      { name: "Elise", gender: "Female", species: "Monkey", personality: "Snooty", colors: ["Purple", "Yellow"], styles: ["Gorgeous", "Elegant"], hobby: "Fashion", zodiac: "Pisces" },
+      { name: "Flip", gender: "Male", species: "Monkey", personality: "Jock", colors: ["Yellow", "Red"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Sagittarius" },
+      { name: "Monty", gender: "Male", species: "Monkey", personality: "Cranky", colors: ["Brown", "Beige"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Sagittarius" },
+      { name: "Nana", gender: "Female", species: "Monkey", personality: "Normal", colors: ["Pink", "Yellow"], styles: ["Cute", "Simple"], hobby: "Music", zodiac: "Leo" },
+      { name: "Shari", gender: "Female", species: "Monkey", personality: "Sisterly", colors: ["Brown", "Red"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Aries" },
+      { name: "Simon", gender: "Male", species: "Monkey", personality: "Lazy", colors: ["Brown", "Yellow"], styles: ["Simple", "Cool"], hobby: "Music", zodiac: "Capricorn" },
+      { name: "Tammi", gender: "Female", species: "Monkey", personality: "Peppy", colors: ["Pink", "Red"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Aries" },
+      
+      // Octopuses (3)
+      { name: "Marina", gender: "Female", species: "Octopus", personality: "Normal", colors: ["Pink", "White"], styles: ["Simple", "Cute"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Octavian", gender: "Male", species: "Octopus", personality: "Cranky", colors: ["Red", "Yellow"], styles: ["Cool", "Simple"], hobby: "Play", zodiac: "Virgo" },
+      { name: "Zucker", gender: "Male", species: "Octopus", personality: "Lazy", colors: ["Red", "Orange"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Pisces" },
+      
+      // Ostriches (10)
+      { name: "Blanche", gender: "Female", species: "Ostrich", personality: "Snooty", colors: ["White", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Sagittarius" },
+      { name: "Cranston", gender: "Male", species: "Ostrich", personality: "Lazy", colors: ["White", "Yellow"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Virgo" },
+      { name: "Flora", gender: "Female", species: "Ostrich", personality: "Peppy", colors: ["Pink", "Purple"], styles: ["Cute", "Gorgeous"], hobby: "Nature", zodiac: "Aquarius" },
+      { name: "Gladys", gender: "Female", species: "Ostrich", personality: "Normal", colors: ["White", "Red"], styles: ["Simple", "Elegant"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Julia", gender: "Female", species: "Ostrich", personality: "Snooty", colors: ["Yellow", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Cancer" },
+      { name: "Phil", gender: "Male", species: "Ostrich", personality: "Smug", colors: ["Green", "Blue"], styles: ["Cool", "Elegant"], hobby: "Nature", zodiac: "Scorpio" },
+      { name: "Phoebe", gender: "Female", species: "Ostrich", personality: "Sisterly", colors: ["Orange", "Red"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Aries" },
+      { name: "Queenie", gender: "Female", species: "Ostrich", personality: "Snooty", colors: ["Purple", "Yellow"], styles: ["Gorgeous", "Elegant"], hobby: "Fashion", zodiac: "Scorpio" },
+      { name: "Rio", gender: "Female", species: "Ostrich", personality: "Peppy", colors: ["Yellow", "Orange"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Virgo" },
+      { name: "Sandy", gender: "Female", species: "Ostrich", personality: "Normal", colors: ["Beige", "Brown"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Libra" },
+      { name: "Sprocket", gender: "Male", species: "Ostrich", personality: "Jock", colors: ["Gray", "Blue"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Sagittarius" },
+      
+      // Penguins (13)
+      { name: "Aurora", gender: "Female", species: "Penguin", personality: "Normal", colors: ["Blue", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Boomer", gender: "Male", species: "Penguin", personality: "Lazy", colors: ["Blue", "Yellow"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Aquarius" },
+      { name: "Cube", gender: "Male", species: "Penguin", personality: "Lazy", colors: ["Blue", "White"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Flo", gender: "Female", species: "Penguin", personality: "Sisterly", colors: ["Black", "Blue"], styles: ["Cool", "Active"], hobby: "Music", zodiac: "Virgo" },
+      { name: "Friga", gender: "Female", species: "Penguin", personality: "Snooty", colors: ["Blue", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Libra" },
+      { name: "Gwen", gender: "Female", species: "Penguin", personality: "Snooty", colors: ["Black", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Capricorn" },
+      { name: "Hopper", gender: "Male", species: "Penguin", personality: "Cranky", colors: ["Yellow", "Blue"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Aries" },
+      { name: "Iggly", gender: "Male", species: "Penguin", personality: "Jock", colors: ["Blue", "Red"], styles: ["Active", "Simple"], hobby: "Play", zodiac: "Scorpio" },
+      { name: "Puck", gender: "Male", species: "Penguin", personality: "Lazy", colors: ["White", "Blue"], styles: ["Active", "Simple"], hobby: "Play", zodiac: "Aquarius" },
+      { name: "Roald", gender: "Male", species: "Penguin", personality: "Jock", colors: ["Blue", "White"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Capricorn" },
+      { name: "Sprinkle", gender: "Female", species: "Penguin", personality: "Peppy", colors: ["Aqua", "White"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Aquarius" },
+      { name: "Tex", gender: "Male", species: "Penguin", personality: "Smug", colors: ["Black", "White"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Libra" },
+      { name: "Wade", gender: "Male", species: "Penguin", personality: "Lazy", colors: ["White", "Blue"], styles: ["Simple", "Cute"], hobby: "Play", zodiac: "Libra" },
+      
+      // Pigs (15)
+      { name: "Agnes", gender: "Female", species: "Pig", personality: "Sisterly", colors: ["Black", "Pink"], styles: ["Cool", "Active"], hobby: "Play", zodiac: "Aries" },
+      { name: "Boris", gender: "Male", species: "Pig", personality: "Cranky", colors: ["Pink", "Brown"], styles: ["Cool", "Simple"], hobby: "Play", zodiac: "Scorpio" },
+      { name: "Chops", gender: "Male", species: "Pig", personality: "Smug", colors: ["Pink", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Libra" },
+      { name: "Cobb", gender: "Male", species: "Pig", personality: "Jock", colors: ["Green", "Yellow"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Libra" },
+      { name: "Curly", gender: "Male", species: "Pig", personality: "Jock", colors: ["Pink", "Yellow"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Cancer" },
+      { name: "Gala", gender: "Female", species: "Pig", personality: "Normal", colors: ["Pink", "Green"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Ganon", gender: "Male", species: "Pig", personality: "Cranky", colors: ["Blue", "Black"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Aquarius" },
+      { name: "Hugh", gender: "Male", species: "Pig", personality: "Lazy", colors: ["Blue", "White"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Kevin", gender: "Male", species: "Pig", personality: "Jock", colors: ["Pink", "Blue"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Aries" },
+      { name: "Lucy", gender: "Female", species: "Pig", personality: "Normal", colors: ["Pink", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Maggie", gender: "Female", species: "Pig", personality: "Normal", colors: ["Pink", "Brown"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Virgo" },
+      { name: "Pancetti", gender: "Female", species: "Pig", personality: "Snooty", colors: ["Pink", "White"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Scorpio" },
+      { name: "Peggy", gender: "Female", species: "Pig", personality: "Peppy", colors: ["Pink", "Red"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Taurus" },
+      { name: "Rasher", gender: "Male", species: "Pig", personality: "Cranky", colors: ["Brown", "Green"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Aries" },
+      { name: "Spork", gender: "Male", species: "Pig", personality: "Lazy", colors: ["Orange", "Pink"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Virgo" },
+      { name: "Truffles", gender: "Female", species: "Pig", personality: "Peppy", colors: ["Pink", "Red"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Cancer" },
+      
+      // Rabbits (20)
+      { name: "Bonbon", gender: "Female", species: "Rabbit", personality: "Peppy", colors: ["Pink", "Purple"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Pisces" },
+      { name: "Bunnie", gender: "Female", species: "Rabbit", personality: "Peppy", colors: ["Orange", "Yellow"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Taurus" },
+      { name: "Carmen", gender: "Female", species: "Rabbit", personality: "Peppy", colors: ["Pink", "Brown"], styles: ["Cute", "Gorgeous"], hobby: "Music", zodiac: "Capricorn" },
+      { name: "Chrissy", gender: "Female", species: "Rabbit", personality: "Peppy", colors: ["Pink", "White"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Leo" },
+      { name: "Claude", gender: "Male", species: "Rabbit", personality: "Lazy", colors: ["Orange", "Brown"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Sagittarius" },
+      { name: "Coco", gender: "Female", species: "Rabbit", personality: "Normal", colors: ["Brown", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Pisces" },
+      { name: "Cole", gender: "Male", species: "Rabbit", personality: "Lazy", colors: ["Brown", "Blue"], styles: ["Simple", "Cool"], hobby: "Play", zodiac: "Leo" },
+      { name: "Doc", gender: "Male", species: "Rabbit", personality: "Lazy", colors: ["Brown", "Orange"], styles: ["Simple", "Cool"], hobby: "Education", zodiac: "Pisces" },
+      { name: "Dotty", gender: "Female", species: "Rabbit", personality: "Peppy", colors: ["White", "Red"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Pisces" },
+      { name: "Francine", gender: "Female", species: "Rabbit", personality: "Snooty", colors: ["Blue", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Capricorn" },
+      { name: "Gaston", gender: "Male", species: "Rabbit", personality: "Cranky", colors: ["Yellow", "Brown"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Libra" },
+      { name: "Genji", gender: "Male", species: "Rabbit", personality: "Jock", colors: ["White", "Red"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Capricorn" },
+      { name: "Hopkins", gender: "Male", species: "Rabbit", personality: "Lazy", colors: ["Blue", "Yellow"], styles: ["Simple", "Cute"], hobby: "Play", zodiac: "Pisces" },
+      { name: "Mira", gender: "Female", species: "Rabbit", personality: "Sisterly", colors: ["Yellow", "Red"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Cancer" },
+      { name: "O'Hare", gender: "Male", species: "Rabbit", personality: "Smug", colors: ["Brown", "Blue"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Cancer" },
+      { name: "Pippy", gender: "Female", species: "Rabbit", personality: "Peppy", colors: ["White", "Pink"], styles: ["Cute", "Active"], hobby: "Play", zodiac: "Gemini" },
+      { name: "Ruby", gender: "Female", species: "Rabbit", personality: "Peppy", colors: ["White", "Red"], styles: ["Cute", "Elegant"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Snake", gender: "Male", species: "Rabbit", personality: "Jock", colors: ["Pink", "Purple"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Scorpio" },
+      { name: "Tiffany", gender: "Female", species: "Rabbit", personality: "Snooty", colors: ["Black", "Pink"], styles: ["Gorgeous", "Elegant"], hobby: "Fashion", zodiac: "Capricorn" },
+      { name: "Toby", gender: "Male", species: "Rabbit", personality: "Smug", colors: ["Yellow", "Brown"], styles: ["Simple", "Elegant"], hobby: "Nature", zodiac: "Aries" },
+      
+      // Rhinos (6)
+      { name: "Hornsby", gender: "Male", species: "Rhino", personality: "Lazy", colors: ["Blue", "Gray"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Merengue", gender: "Female", species: "Rhino", personality: "Normal", colors: ["White", "Pink"], styles: ["Cute", "Simple"], hobby: "Nature", zodiac: "Pisces" },
+      { name: "Renee", gender: "Female", species: "Rhino", personality: "Sisterly", colors: ["Blue", "Black"], styles: ["Cool", "Active"], hobby: "Music", zodiac: "Gemini" },
+      { name: "Rhonda", gender: "Female", species: "Rhino", personality: "Normal", colors: ["White", "Blue"], styles: ["Simple", "Elegant"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Spike", gender: "Male", species: "Rhino", personality: "Cranky", colors: ["Gray", "Blue"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Gemini" },
+      { name: "Tank", gender: "Male", species: "Rhino", personality: "Jock", colors: ["Gray", "Red"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Taurus" },
+      
+      // Sheep (13)
+      { name: "Baabara", gender: "Female", species: "Sheep", personality: "Snooty", colors: ["Black", "Purple"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Pisces" },
+      { name: "Cashmere", gender: "Female", species: "Sheep", personality: "Snooty", colors: ["Yellow", "Brown"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Aries" },
+      { name: "Curlos", gender: "Male", species: "Sheep", personality: "Smug", colors: ["Brown", "Yellow"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Taurus" },
+      { name: "Dom", gender: "Male", species: "Sheep", personality: "Jock", colors: ["White", "Colorful"], styles: ["Active", "Cute"], hobby: "Play", zodiac: "Pisces" },
+      { name: "Eunice", gender: "Female", species: "Sheep", personality: "Normal", colors: ["Beige", "Brown"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Aries" },
+      { name: "Etoile", gender: "Female", species: "Sheep", personality: "Normal", colors: ["Yellow", "White"], styles: ["Cute", "Gorgeous"], hobby: "Nature", zodiac: "Taurus" },
+      { name: "Frita", gender: "Female", species: "Sheep", personality: "Sisterly", colors: ["Yellow", "Red"], styles: ["Active", "Cute"], hobby: "Fitness", zodiac: "Cancer" },
+      { name: "Muffy", gender: "Female", species: "Sheep", personality: "Sisterly", colors: ["Black", "Purple"], styles: ["Cool", "Gorgeous"], hobby: "Music", zodiac: "Aquarius" },
+      { name: "Pietro", gender: "Male", species: "Sheep", personality: "Smug", colors: ["Colorful", "Rainbow"], styles: ["Gorgeous", "Cool"], hobby: "Music", zodiac: "Aries" },
+      { name: "Stella", gender: "Female", species: "Sheep", personality: "Normal", colors: ["White", "Blue"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Aries" },
+      { name: "Timbra", gender: "Female", species: "Sheep", personality: "Snooty", colors: ["Gray", "Purple"], styles: ["Cool", "Elegant"], hobby: "Fashion", zodiac: "Libra" },
+      { name: "Vesta", gender: "Female", species: "Sheep", personality: "Normal", colors: ["White", "Orange"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Aries" },
+      { name: "Wendy", gender: "Female", species: "Sheep", personality: "Peppy", colors: ["Pink", "Red"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Leo" },
+      { name: "Willow", gender: "Female", species: "Sheep", personality: "Snooty", colors: ["White", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Scorpio" },
+      
+      // Squirrels (18)
+      { name: "Agent S", gender: "Female", species: "Squirrel", personality: "Peppy", colors: ["Blue", "Red"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Cancer" },
+      { name: "Blaire", gender: "Female", species: "Squirrel", personality: "Snooty", colors: ["Brown", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Education", zodiac: "Cancer" },
+      { name: "Cally", gender: "Female", species: "Squirrel", personality: "Normal", colors: ["Brown", "Orange"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Virgo" },
+      { name: "Caroline", gender: "Female", species: "Squirrel", personality: "Normal", colors: ["Yellow", "Pink"], styles: ["Simple", "Cute"], hobby: "Fashion", zodiac: "Cancer" },
+      { name: "Filbert", gender: "Male", species: "Squirrel", personality: "Lazy", colors: ["Blue", "Gray"], styles: ["Simple", "Cool"], hobby: "Nature", zodiac: "Gemini" },
+      { name: "Hazel", gender: "Female", species: "Squirrel", personality: "Sisterly", colors: ["Brown", "Yellow"], styles: ["Active", "Cool"], hobby: "Play", zodiac: "Virgo" },
+      { name: "Ione", gender: "Female", species: "Squirrel", personality: "Normal", colors: ["Purple", "Yellow"], styles: ["Elegant", "Gorgeous"], hobby: "Nature", zodiac: "Sagittarius" },
+      { name: "Marshal", gender: "Male", species: "Squirrel", personality: "Smug", colors: ["White", "Blue"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Libra" },
+      { name: "Mint", gender: "Female", species: "Squirrel", personality: "Snooty", colors: ["Aqua", "White"], styles: ["Elegant", "Gorgeous"], hobby: "Nature", zodiac: "Taurus" },
+      { name: "Nibbles", gender: "Female", species: "Squirrel", personality: "Peppy", colors: ["Blue", "Pink"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Cancer" },
+      { name: "Peanut", gender: "Female", species: "Squirrel", personality: "Peppy", colors: ["Pink", "Purple"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Gemini" },
+      { name: "Pecan", gender: "Female", species: "Squirrel", personality: "Snooty", colors: ["Brown", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Virgo" },
+      { name: "Poppy", gender: "Female", species: "Squirrel", personality: "Normal", colors: ["Red", "Brown"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Leo" },
+      { name: "Ricky", gender: "Male", species: "Squirrel", personality: "Cranky", colors: ["Brown", "Green"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Virgo" },
+      { name: "Sally", gender: "Female", species: "Squirrel", personality: "Normal", colors: ["Beige", "Green"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Sheldon", gender: "Male", species: "Squirrel", personality: "Jock", colors: ["Red", "Yellow"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Aquarius" },
+      { name: "Static", gender: "Male", species: "Squirrel", personality: "Cranky", colors: ["Purple", "Blue"], styles: ["Cool", "Simple"], hobby: "Music", zodiac: "Cancer" },
+      { name: "Sylvana", gender: "Female", species: "Squirrel", personality: "Normal", colors: ["Brown", "White"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Libra" },
+      { name: "Tasha", gender: "Female", species: "Squirrel", personality: "Snooty", colors: ["Purple", "Pink"], styles: ["Cool", "Gorgeous"], hobby: "Fashion", zodiac: "Sagittarius" },
+      
+      // Tigers (7)
+      { name: "Bangle", gender: "Female", species: "Tiger", personality: "Peppy", colors: ["Orange", "Yellow"], styles: ["Cute", "Active"], hobby: "Fashion", zodiac: "Leo" },
+      { name: "Bianca", gender: "Female", species: "Tiger", personality: "Peppy", colors: ["White", "Blue"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Sagittarius" },
+      { name: "Claudia", gender: "Female", species: "Tiger", personality: "Snooty", colors: ["Pink", "Red"], styles: ["Elegant", "Gorgeous"], hobby: "Music", zodiac: "Scorpio" },
+      { name: "Leonardo", gender: "Male", species: "Tiger", personality: "Jock", colors: ["Orange", "Brown"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Taurus" },
+      { name: "Rowan", gender: "Male", species: "Tiger", personality: "Jock", colors: ["Orange", "Blue"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Leo" },
+      { name: "Rolf", gender: "Male", species: "Tiger", personality: "Cranky", colors: ["Brown", "Blue"], styles: ["Cool", "Simple"], hobby: "Fitness", zodiac: "Leo" },
+      { name: "Tybalt", gender: "Male", species: "Tiger", personality: "Jock", colors: ["Orange", "Green"], styles: ["Active", "Simple"], hobby: "Fitness", zodiac: "Sagittarius" },
+      
+      // Wolves (11)
+      { name: "Audie", gender: "Female", species: "Wolf", personality: "Peppy", colors: ["Orange", "Yellow"], styles: ["Cute", "Gorgeous"], hobby: "Fashion", zodiac: "Leo" },
+      { name: "Chief", gender: "Male", species: "Wolf", personality: "Cranky", colors: ["Green", "Brown"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Sagittarius" },
+      { name: "Dobie", gender: "Male", species: "Wolf", personality: "Cranky", colors: ["Gray", "Brown"], styles: ["Simple", "Cool"], hobby: "Education", zodiac: "Aquarius" },
+      { name: "Fang", gender: "Male", species: "Wolf", personality: "Cranky", colors: ["White", "Blue"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Sagittarius" },
+      { name: "Freya", gender: "Female", species: "Wolf", personality: "Snooty", colors: ["Pink", "Yellow"], styles: ["Gorgeous", "Elegant"], hobby: "Fashion", zodiac: "Sagittarius" },
+      { name: "Kyle", gender: "Male", species: "Wolf", personality: "Smug", colors: ["Gray", "Blue"], styles: ["Cool", "Elegant"], hobby: "Music", zodiac: "Sagittarius" },
+      { name: "Lobo", gender: "Male", species: "Wolf", personality: "Cranky", colors: ["Purple", "Gray"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Scorpio" },
+      { name: "Skye", gender: "Female", species: "Wolf", personality: "Normal", colors: ["Blue", "White"], styles: ["Simple", "Elegant"], hobby: "Music", zodiac: "Pisces" },
+      { name: "Vivian", gender: "Female", species: "Wolf", personality: "Snooty", colors: ["Gray", "Pink"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Capricorn" },
+      { name: "Whitney", gender: "Female", species: "Wolf", personality: "Snooty", colors: ["White", "Blue"], styles: ["Elegant", "Gorgeous"], hobby: "Fashion", zodiac: "Virgo" },
+      { name: "Wolfgang", gender: "Male", species: "Wolf", personality: "Cranky", colors: ["Black", "Gray"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Scorpio" },
+      
+      // Additional villagers to reach 413
+      { name: "Ace", gender: "Male", species: "Bird", personality: "Jock", colors: ["Brown", "Green"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Leo" },
+      { name: "Cephalobot", gender: "Male", species: "Octopus", personality: "Smug", colors: ["Gray", "Blue"], styles: ["Cool", "Elegant"], hobby: "Education", zodiac: "Aries" },
+      { name: "Quinn", gender: "Female", species: "Eagle", personality: "Sisterly", colors: ["Brown", "Black"], styles: ["Cool", "Active"], hobby: "Nature", zodiac: "Capricorn" },
+      { name: "Sasha", gender: "Male", species: "Rabbit", personality: "Lazy", colors: ["White", "Purple"], styles: ["Cute", "Simple"], hobby: "Music", zodiac: "Taurus" },
+      { name: "Tiansheng", gender: "Male", species: "Monkey", personality: "Jock", colors: ["Yellow", "Red"], styles: ["Active", "Cool"], hobby: "Fitness", zodiac: "Leo" },
+      { name: "Marlo", gender: "Male", species: "Hamster", personality: "Cranky", colors: ["White", "Gray"], styles: ["Elegant", "Cool"], hobby: "Education", zodiac: "Gemini" },
+      { name: "Wardell", gender: "Male", species: "Manatee", personality: "Lazy", colors: ["Blue", "White"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Virgo" },
+      { name: "Niko", gender: "Male", species: "Monkey", personality: "Lazy", colors: ["Brown", "Yellow"], styles: ["Simple", "Cute"], hobby: "Nature", zodiac: "Gemini" },
+      { name: "Roswell", gender: "Male", species: "Alligator", personality: "Lazy", colors: ["Purple", "Yellow"], styles: ["Cool", "Simple"], hobby: "Education", zodiac: "Capricorn" },
+      { name: "Zoe", gender: "Female", species: "Anteater", personality: "Normal", colors: ["Gray", "Pink"], styles: ["Simple", "Cute"], hobby: "Education", zodiac: "Libra" }
+    ];
+
+    // Game State
+    let currentVillager = null;
+    let hintsRevealed = 0;
+    let score = 0;
+    let streak = 0;
+    let hintOrder = [];
+    let gameOver = false;
+
+    const allHintTypes = ['gender', 'species', 'personality', 'colors', 'styles', 'hobby', 'zodiac', 'initial'];
+
+    const hintIcons = {
+      gender: '👤',
+      species: '🐾',
+      personality: '💭',
+      colors: '🎨',
+      styles: '👔',
+      hobby: '🎯',
+      zodiac: '⭐',
+      initial: '🔤'
+    };
+
+    const hintLabels = {
+      gender: 'Gender',
+      species: 'Species',
+      personality: 'Personality',
+      colors: 'Fav Colors',
+      styles: 'Styles',
+      hobby: 'Hobby',
+      zodiac: 'Zodiac',
+      initial: 'First Letter'
+    };
+
+    // DOM Elements
+    const hintsGrid = document.getElementById('hints-grid');
+    const hintsCount = document.getElementById('hints-count');
+    const hintBtn = document.getElementById('hint-btn');
+    const guessInput = document.getElementById('guess-input');
+    const suggestions = document.getElementById('suggestions');
+    const submitBtn = document.getElementById('submit-btn');
+    const resultContainer = document.getElementById('result-container');
+    const resultIcon = document.getElementById('result-icon');
+    const resultTitle = document.getElementById('result-title');
+    const resultMessage = document.getElementById('result-message');
+    const nextBtn = document.getElementById('next-btn');
+    const giveupBtn = document.getElementById('giveup-btn');
+    const scoreDisplay = document.getElementById('score');
+    const streakDisplay = document.getElementById('streak');
+    const gameTitle = document.getElementById('game-title');
+
+    // Initialize game
+    function initGame() {
+      currentVillager = villagers[Math.floor(Math.random() * villagers.length)];
+      hintsRevealed = 0;
+      gameOver = false;
+      hintOrder = shuffleArray([...allHintTypes]);
+      
+      renderHints();
+      updateHintCount();
+      guessInput.value = '';
+      suggestions.classList.add('hidden');
+      resultContainer.classList.add('hidden');
+      giveupBtn.classList.remove('hidden');
+      hintBtn.disabled = false;
+      hintBtn.classList.remove('opacity-50');
+    }
+
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function renderHints() {
+      hintsGrid.innerHTML = '';
+      
+      for (let i = 0; i < 8; i++) {
+        const hintType = hintOrder[i];
+        const isRevealed = i < hintsRevealed;
+        
+        const hintCard = document.createElement('div');
+        hintCard.className = `hint-card rounded-xl p-3 text-center ${isRevealed ? 'bg-white shadow-md' : 'bg-amber-100'}`;
+        
+        if (isRevealed) {
+          const value = getHintValue(hintType);
+          hintCard.innerHTML = `
+            <div class="text-2xl mb-1">${hintIcons[hintType]}</div>
+            <div class="text-xs text-amber-600 font-semibold uppercase tracking-wide">${hintLabels[hintType]}</div>
+            <div class="text-sm font-bold text-green-800 mt-1">${value}</div>
+          `;
+        } else {
+          hintCard.innerHTML = `
+            <div class="text-2xl mb-1 opacity-30">❓</div>
+            <div class="text-xs text-amber-400 font-semibold">Hidden</div>
+          `;
+        }
+        
+        hintsGrid.appendChild(hintCard);
+      }
+    }
+
+    function getHintValue(type) {
+      switch(type) {
+        case 'gender': return currentVillager.gender;
+        case 'species': return currentVillager.species;
+        case 'personality': return currentVillager.personality;
+        case 'colors': return currentVillager.colors.join(', ');
+        case 'styles': return currentVillager.styles.join(', ');
+        case 'hobby': return currentVillager.hobby;
+        case 'zodiac': return currentVillager.zodiac;
+        case 'initial': return currentVillager.name[0].toUpperCase();
+        default: return '';
+      }
+    }
+
+    function updateHintCount() {
+      hintsCount.textContent = `${hintsRevealed}/8`;
+    }
+
+    function revealHint() {
+      if (hintsRevealed < 8 && !gameOver) {
+        hintsRevealed++;
+        renderHints();
+        updateHintCount();
+        
+        if (hintsRevealed >= 8) {
+          hintBtn.disabled = true;
+          hintBtn.classList.add('opacity-50');
+        }
+      }
+    }
+
+    function showSuggestions(query) {
+      if (!query.trim()) {
+        suggestions.classList.add('hidden');
+        return;
+      }
+      
+      const matches = villagers
+        .filter(v => v.name.toLowerCase().startsWith(query.toLowerCase()))
+        .slice(0, 5);
+      
+      if (matches.length === 0) {
+        suggestions.classList.add('hidden');
+        return;
+      }
+      
+      suggestions.innerHTML = matches.map(v => `
+        <div class="suggestion-item px-4 py-2 cursor-pointer border-b border-gray-100 last:border-0 transition-colors" data-name="${v.name}">
+          ${v.name}
+        </div>
+      `).join('');
+      
+      suggestions.classList.remove('hidden');
+      
+      document.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('click', () => {
+          guessInput.value = item.dataset.name;
+          suggestions.classList.add('hidden');
+        });
+      });
+    }
+
+    function checkGuess() {
+      const guess = guessInput.value.trim().toLowerCase();
+      const correct = currentVillager.name.toLowerCase();
+      
+      if (!guess) return;
+      
+      gameOver = true;
+      giveupBtn.classList.add('hidden');
+      
+      if (guess === correct) {
+        // Calculate points based on hints used
+        const points = Math.max(100 - (hintsRevealed * 10), 10);
+        score += points;
+        streak++;
+        
+        scoreDisplay.textContent = score;
+        streakDisplay.textContent = streak;
+        
+        resultContainer.style.backgroundColor = '#c8e6c9';
+        resultIcon.textContent = '🎉';
+        resultTitle.textContent = 'Correct!';
+        resultTitle.style.color = '#2e7d32';
+        resultMessage.innerHTML = `It was <strong>${currentVillager.name}</strong>!<br>+${points} points • ${streak} streak 🔥`;
+        resultMessage.style.color = '#388e3c';
+      } else {
+        streak = 0;
+        streakDisplay.textContent = streak;
+        
+        resultContainer.style.backgroundColor = '#ffcdd2';
+        resultIcon.textContent = '😢';
+        resultTitle.textContent = 'Not quite...';
+        resultTitle.style.color = '#c62828';
+        resultMessage.innerHTML = `The answer was <strong>${currentVillager.name}</strong>!`;
+        resultMessage.style.color = '#d32f2f';
+        
+        guessInput.classList.add('shake');
+        setTimeout(() => guessInput.classList.remove('shake'), 300);
+      }
+      
+      resultContainer.classList.remove('hidden');
+    }
+
+    function giveUp() {
+      gameOver = true;
+      streak = 0;
+      streakDisplay.textContent = streak;
+      giveupBtn.classList.add('hidden');
+      
+      resultContainer.style.backgroundColor = '#fff3e0';
+      resultIcon.textContent = '🤔';
+      resultTitle.textContent = 'The answer was...';
+      resultTitle.style.color = '#e65100';
+      resultMessage.innerHTML = `<strong>${currentVillager.name}</strong>!<br>Better luck next time!`;
+      resultMessage.style.color = '#f57c00';
+      
+      resultContainer.classList.remove('hidden');
+    }
+
+    // Event Listeners
+    hintBtn.addEventListener('click', revealHint);
+    guessInput.addEventListener('input', (e) => showSuggestions(e.target.value));
+    guessInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        checkGuess();
+      }
+    });
+    submitBtn.addEventListener('click', checkGuess);
+    nextBtn.addEventListener('click', initGame);
+    giveupBtn.addEventListener('click', giveUp);
+
+    document.addEventListener('click', (e) => {
+      if (!suggestions.contains(e.target) && e.target !== guessInput) {
+        suggestions.classList.add('hidden');
+      }
+    });
+
+    // Element SDK Integration
+    async function onConfigChange(cfg) {
+      const titleEl = document.getElementById('game-title');
+      const hintBtnEl = document.getElementById('hint-btn');
+      const appEl = document.getElementById('app');
+      
+      titleEl.textContent = cfg.game_title || defaultConfig.game_title;
+      hintBtnEl.innerHTML = `🍃 ${cfg.hint_button_text || defaultConfig.hint_button_text}`;
+      
+      const bgColor = cfg.background_color || defaultConfig.background_color;
+      const cardColor = cfg.card_color || defaultConfig.card_color;
+      const textColor = cfg.text_color || defaultConfig.text_color;
+      const primaryColor = cfg.primary_action_color || defaultConfig.primary_action_color;
+      const secondaryColor = cfg.secondary_action_color || defaultConfig.secondary_action_color;
+      const fontFamily = cfg.font_family || defaultConfig.font_family;
+      const fontSize = cfg.font_size || defaultConfig.font_size;
+      
+      appEl.style.backgroundColor = bgColor;
+      document.querySelectorAll('#hints-container, #result-container').forEach(el => {
+        if (el) el.style.backgroundColor = cardColor;
+      });
+      
+      titleEl.style.color = textColor;
+      hintBtnEl.style.background = `linear-gradient(135deg, ${primaryColor} 0%, ${adjustColor(primaryColor, -20)} 100%)`;
+      submitBtn.style.background = `linear-gradient(135deg, ${secondaryColor} 0%, ${adjustColor(secondaryColor, -20)} 100%)`;
+      
+      document.body.style.fontFamily = `${fontFamily}, Nunito, sans-serif`;
+      document.body.style.fontSize = `${fontSize}px`;
+      
+      document.querySelectorAll('h1').forEach(el => el.style.fontSize = `${fontSize * 2}px`);
+      document.querySelectorAll('h2').forEach(el => el.style.fontSize = `${fontSize * 1.25}px`);
+    }
+
+    function adjustColor(hex, amount) {
+      const num = parseInt(hex.replace('#', ''), 16);
+      const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+      const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+      const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+      return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
+    }
+
+    function mapToCapabilities(cfg) {
+      return {
+        recolorables: [
+          {
+            get: () => cfg.background_color || defaultConfig.background_color,
+            set: (value) => { cfg.background_color = value; window.elementSdk.setConfig({ background_color: value }); }
+          },
+          {
+            get: () => cfg.card_color || defaultConfig.card_color,
+            set: (value) => { cfg.card_color = value; window.elementSdk.setConfig({ card_color: value }); }
+          },
+          {
+            get: () => cfg.text_color || defaultConfig.text_color,
+            set: (value) => { cfg.text_color = value; window.elementSdk.setConfig({ text_color: value }); }
+          },
+          {
+            get: () => cfg.primary_action_color || defaultConfig.primary_action_color,
+            set: (value) => { cfg.primary_action_color = value; window.elementSdk.setConfig({ primary_action_color: value }); }
+          },
+          {
+            get: () => cfg.secondary_action_color || defaultConfig.secondary_action_color,
+            set: (value) => { cfg.secondary_action_color = value; window.elementSdk.setConfig({ secondary_action_color: value }); }
+          }
+        ],
+        borderables: [],
+        fontEditable: {
+          get: () => cfg.font_family || defaultConfig.font_family,
+          set: (value) => { cfg.font_family = value; window.elementSdk.setConfig({ font_family: value }); }
+        },
+        fontSizeable: {
+          get: () => cfg.font_size || defaultConfig.font_size,
+          set: (value) => { cfg.font_size = value; window.elementSdk.setConfig({ font_size: value }); }
+        }
+      };
+    }
+
+    function mapToEditPanelValues(cfg) {
+      return new Map([
+        ['game_title', cfg.game_title || defaultConfig.game_title],
+        ['hint_button_text', cfg.hint_button_text || defaultConfig.hint_button_text]
+      ]);
+    }
+
+    // Initialize SDK
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+
+    // Start the game
+    initGame();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6437c542e98c8f',t:'MTc2OTgxMDE3MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
