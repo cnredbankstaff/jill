@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACNH Villager Guesser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    body { box-sizing: border-box; }
+    * { font-family: 'Nunito', sans-serif; }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    
+    .float-animation { animation: float 3s ease-in-out infinite; }
+    .shake { animation: shake 0.3s ease-in-out; }
+    
+    .hint-card {
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+    
+    .hint-card:hover {
+      transform: translateY(-2px);
+    }
+    
+    .guess-input:focus {
+      box-shadow: 0 0 0 3px rgba(139, 195, 74, 0.3);
+    }
+    
+    .suggestion-item:hover {
+      background: linear-gradient(135deg, #a8e063 0%, #56ab2f 100%);
+      color: white;
+    }
+    
+    .leaf-pattern {
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 Q35 15 30 25 Q25 15 30 5' fill='%2390caf9' opacity='0.1'/%3E%3C/svg%3E");
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full overflow-auto leaf-pattern" style="background-color: #e8f5e9;"><!-- Header -->
+   <div class="text-center py-6 px-4">
+    <div class="float-animation inline-block mb-2">
+     <svg width="60" height="60" viewbox="0 0 60 60">
+      <ellipse cx="30" cy="35" rx="20" ry="18" fill="#8BC34A" /> <ellipse cx="30" cy="33" rx="16" ry="14" fill="#A5D6A7" /> <circle cx="24" cy="30" r="4" fill="#333" /> <circle cx="36" cy="30" r="4" fill="#333" /> <circle cx="25" cy="31" r="1.5" fill="#fff" /> <circle cx="37" cy="31" r="1.5" fill="#fff" /> <ellipse cx="30" cy="36" rx="3" ry="2" fill="#333" /> <path d="M22 38 Q30 44 38 38" stroke="#333" stroke-width="2" fill="none" /> <ellipse cx="18" cy="34" rx="4" ry="3" fill="#FFAB91" opacity="0.6" /> <ellipse cx="42" cy="34" rx="4" ry="3" fill="#FFAB91" opacity="0.6" />
+     </svg>
+    </div>
+    <h1 id="game-title" class="text-3xl md:text-4xl font-extrabold text-green-800 drop-shadow-sm">ACNH Villager Guesser</h1>
+    <p id="instructions-text" class="text-green-600 mt-1 text-sm md:text-base">Use hints to guess the mystery villager!</p>
+   </div><!-- Score Display -->
+   <div class="flex justify-center gap-4 mb-4 px-4">
+    <div class="px-4 py-2 rounded-full shadow-md" style="background-color: #fff9c4;">
+     <span class="text-amber-700 font-bold">🏆 Score: <span id="score">0</span></span>
+    </div>
+    <div class="px-4 py-2 rounded-full shadow-md" style="background-color: #ffccbc;">
+     <span class="text-orange-700 font-bold">🎯 Streak: <span id="streak">0</span></span>
+    </div>
+   </div><!-- Game Area -->
+   <div class="max-w-2xl mx-auto px-4 pb-8"><!-- Hints Section -->
+    <div class="rounded-2xl p-4 md:p-6 shadow-xl mb-4" style="background-color: #ffffff;">
+     <div class="flex justify-between items-center mb-3">
+      <h2 class="text-green-800 font-bold text-lg">💡 Hints (<span id="hints-count">0/4</span>)</h2><button id="hint-btn" class="px-4 py-2 rounded-lg font-bold text-white transition-all hover:scale-[1.05] active:scale-95" style="background: linear-gradient(135deg, #FFA726 0%, #FB8C00 100%);"> 🔍 Reveal Hint </button>
+     </div>
+     <div id="hints-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <!-- Hints will be populated here -->
+     </div>
+    </div><!-- Guess Input -->
+    <div class="rounded-2xl p-4 md:p-6 shadow-xl mb-4" style="background-color: #ffffff;"><label class="block text-green-800 font-bold mb-2">✏️ Your Guess</label>
+     <div class="relative"><input type="text" id="guess-input" class="guess-input w-full px-4 py-3 rounded-xl border-2 border-green-200 focus:border-green-400 outline-none text-lg" placeholder="Type villager name..." autocomplete="off">
+      <div id="suggestions" class="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden shadow-lg z-10 hidden" style="background-color: #fff;"></div>
+     </div><button id="submit-btn" class="w-full mt-3 py-3 rounded-xl font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98]" style="background: linear-gradient(135deg, #42A5F5 0%, #1E88E5 100%);"> 🎮 Submit Guess </button>
+    </div><!-- Guesses History -->
+    <div id="guesses-container" class="space-y-3 mb-4">
+     <!-- Guess history will appear here -->
+    </div><!-- Result Message -->
+    <div id="result-container" class="hidden rounded-2xl p-6 shadow-xl text-center">
+     <div id="result-icon" class="text-6xl mb-3"></div>
+     <h3 id="result-title" class="text-2xl font-extrabold mb-2"></h3>
+     <p id="result-message" class="mb-4"></p><button id="next-btn" class="px-8 py-3 rounded-xl font-bold text-white transition-all hover:scale-[1.02]" style="background: linear-gradient(135deg, #AB47BC 0%, #8E24AA 100%);"> 🌟 Next Villager </button>
+    </div><!-- Give Up Button --> <button id="giveup-btn" class="w-full py-3 rounded-xl font-bold transition-all hover:scale-[1.02]" style="background-color: #ffcdd2; color: #c62828;"> 😿 Give Up </button>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      game_title: 'ACNH Villager Guesser',
+      instructions_text: 'Use hints to guess the mystery villager!'
+    };
+
+    let config = { ...defaultConfig };
+
+    // All 397 Animal Crossing: New Horizons villagers
+    const villagers = [
+      // Alligators
+      { name: "Alfonso", species: "Alligator", personality: "Lazy", gender: "Male" },
+      { name: "Alli", species: "Alligator", personality: "Snooty", gender: "Female" },
+      { name: "Boots", species: "Alligator", personality: "Jock", gender: "Male" },
+      { name: "Del", species: "Alligator", personality: "Cranky", gender: "Male" },
+      { name: "Drago", species: "Alligator", personality: "Lazy", gender: "Male" },
+      { name: "Gayle", species: "Alligator", personality: "Normal", gender: "Female" },
+      { name: "Sly", species: "Alligator", personality: "Jock", gender: "Male" },
+      // Anteaters
+      { name: "Anabelle", species: "Anteater", personality: "Peppy", gender: "Female" },
+      { name: "Annalisa", species: "Anteater", personality: "Normal", gender: "Female" },
+      { name: "Antonio", species: "Anteater", personality: "Jock", gender: "Male" },
+      { name: "Cyrano", species: "Anteater", personality: "Cranky", gender: "Male" },
+      { name: "Olaf", species: "Anteater", personality: "Smug", gender: "Male" },
+      { name: "Pango", species: "Anteater", personality: "Peppy", gender: "Female" },
+      // Apes
+      { name: "Azel", species: "Ape", personality: "Jock", gender: "Male" },
+      { name: "Cody", species: "Ape", personality: "Jock", gender: "Male" },
+      { name: "Jock", species: "Ape", personality: "Jock", gender: "Male" },
+      { name: "Tammi", species: "Ape", personality: "Peppy", gender: "Female" },
+      { name: "Lucy", species: "Ape", personality: "Normal", gender: "Female" },
+      // Bears
+      { name: "Beardo", species: "Bear", personality: "Smug", gender: "Male" },
+      { name: "Charlise", species: "Bear", personality: "Sisterly", gender: "Female" },
+      { name: "Chow", species: "Bear", personality: "Cranky", gender: "Male" },
+      { name: "Curt", species: "Bear", personality: "Cranky", gender: "Male" },
+      { name: "Grizzly", species: "Bear", personality: "Cranky", gender: "Male" },
+      { name: "Groucho", species: "Bear", personality: "Cranky", gender: "Male" },
+      { name: "Ike", species: "Bear", personality: "Cranky", gender: "Male" },
+      { name: "Klaus", species: "Bear", personality: "Smug", gender: "Male" },
+      { name: "Megan", species: "Bear", personality: "Normal", gender: "Female" },
+      { name: "Nate", species: "Bear", personality: "Lazy", gender: "Male" },
+      { name: "Paula", species: "Bear", personality: "Sisterly", gender: "Female" },
+      { name: "Pinky", species: "Bear", personality: "Peppy", gender: "Female" },
+      { name: "Teddy", species: "Bear", personality: "Jock", gender: "Male" },
+      { name: "Tutu", species: "Bear", personality: "Peppy", gender: "Female" },
+      { name: "Ursala", species: "Bear", personality: "Sisterly", gender: "Female" },
+      // Beavers
+      { name: "Al", species: "Beaver", personality: "Lazy", gender: "Male" },
+      { name: "Benjamin", species: "Beaver", personality: "Lazy", gender: "Male" },
+      { name: "Bianca", species: "Beaver", personality: "Sisterly", gender: "Female" },
+      { name: "Flip", species: "Beaver", personality: "Jock", gender: "Male" },
+      { name: "Genji", species: "Beaver", personality: "Jock", gender: "Male" },
+      { name: "Lucy", species: "Beaver", personality: "Normal", gender: "Female" },
+      { name: "Maple", species: "Beaver", personality: "Normal", gender: "Female" },
+      { name: "Nibbles", species: "Beaver", personality: "Peppy", gender: "Female" },
+      { name: "Wade", species: "Beaver", personality: "Lazy", gender: "Male" },
+      // Birds
+      { name: "Anchovy", species: "Bird", personality: "Lazy", gender: "Male" },
+      { name: "Blathers", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Buhki", species: "Bird", personality: "Jock", gender: "Male" },
+      { name: "Claud", species: "Bird", personality: "Lazy", gender: "Male" },
+      { name: "Ella", species: "Bird", personality: "Normal", gender: "Female" },
+      { name: "Fang", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Feathers", species: "Bird", personality: "Peppy", gender: "Female" },
+      { name: "Hoot", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Jay", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Jitters", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Justina", species: "Bird", personality: "Snooty", gender: "Female" },
+      { name: "Kibbles", species: "Bird", personality: "Peppy", gender: "Female" },
+      { name: "Klance", species: "Bird", personality: "Smug", gender: "Male" },
+      { name: "Leonardo", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Louie", species: "Bird", personality: "Lazy", gender: "Male" },
+      { name: "Midge", species: "Bird", personality: "Peppy", gender: "Female" },
+      { name: "Moe", species: "Bird", personality: "Lazy", gender: "Male" },
+      { name: "Oscar", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Pate", species: "Bird", personality: "Peppy", gender: "Female" },
+      { name: "Peck", species: "Bird", personality: "Jock", gender: "Male" },
+      { name: "Perry", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Peewee", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Phoebe", species: "Bird", personality: "Sisterly", gender: "Female" },
+      { name: "Spike", species: "Bird", personality: "Cranky", gender: "Male" },
+      { name: "Sparro", species: "Bird", personality: "Jock", gender: "Male" },
+      { name: "Twiggy", species: "Bird", personality: "Peppy", gender: "Female" },
+      { name: "Wart Jr.", species: "Bird", personality: "Cranky", gender: "Male" },
+      // Bulls
+      { name: "Angus", species: "Bull", personality: "Cranky", gender: "Male" },
+      { name: "Roscoe", species: "Bull", personality: "Cranky", gender: "Male" },
+      { name: "Rodney", species: "Bull", personality: "Smug", gender: "Male" },
+      // Cats
+      { name: "Ankha", species: "Cat", personality: "Snooty", gender: "Female" },
+      { name: "Bob", species: "Cat", personality: "Lazy", gender: "Male" },
+      { name: "Felicity", species: "Cat", personality: "Peppy", gender: "Female" },
+      { name: "Kabuki", species: "Cat", personality: "Cranky", gender: "Male" },
+      { name: "Katt", species: "Cat", personality: "Sisterly", gender: "Female" },
+      { name: "Kiki", species: "Cat", personality: "Normal", gender: "Female" },
+      { name: "Kitty", species: "Cat", personality: "Snooty", gender: "Female" },
+      { name: "Lolly", species: "Cat", personality: "Normal", gender: "Female" },
+      { name: "Merry", species: "Cat", personality: "Peppy", gender: "Female" },
+      { name: "Mitzi", species: "Cat", personality: "Normal", gender: "Female" },
+      { name: "Moe", species: "Cat", personality: "Lazy", gender: "Male" },
+      { name: "Monique", species: "Cat", personality: "Snooty", gender: "Female" },
+      { name: "Olivia", species: "Cat", personality: "Snooty", gender: "Female" },
+      { name: "Punchy", species: "Cat", personality: "Lazy", gender: "Male" },
+      { name: "Purrl", species: "Cat", personality: "Snooty", gender: "Female" },
+      { name: "Raymond", species: "Cat", personality: "Smug", gender: "Male" },
+      { name: "Rosie", species: "Cat", personality: "Peppy", gender: "Female" },
+      { name: "Rudy", species: "Cat", personality: "Jock", gender: "Male" },
+      { name: "Stinky", species: "Cat", personality: "Jock", gender: "Male" },
+      { name: "Tabby", species: "Cat", personality: "Peppy", gender: "Female" },
+      { name: "Tangy", species: "Cat", personality: "Peppy", gender: "Female" },
+      { name: "Tom", species: "Cat", personality: "Cranky", gender: "Male" },
+      { name: "Kid Cat", species: "Cat", personality: "Jock", gender: "Male" },
+      // Chickens
+      { name: "Ava", species: "Chicken", personality: "Normal", gender: "Female" },
+      { name: "Becky", species: "Chicken", personality: "Snooty", gender: "Female" },
+      { name: "Benedict", species: "Chicken", personality: "Lazy", gender: "Male" },
+      { name: "Broffina", species: "Chicken", personality: "Snooty", gender: "Female" },
+      { name: "Egbert", species: "Chicken", personality: "Lazy", gender: "Male" },
+      { name: "Goose", species: "Chicken", personality: "Jock", gender: "Male" },
+      { name: "Ken", species: "Chicken", personality: "Smug", gender: "Male" },
+      { name: "Knox", species: "Chicken", personality: "Cranky", gender: "Male" },
+      { name: "Plucky", species: "Chicken", personality: "Sisterly", gender: "Female" },
+      // Cows
+      { name: "Clarice", species: "Cow", personality: "Snooty", gender: "Female" },
+      { name: "Daisy", species: "Cow", personality: "Normal", gender: "Female" },
+      { name: "Freya", species: "Cow", personality: "Sisterly", gender: "Female" },
+      { name: "Molly", species: "Cow", personality: "Normal", gender: "Female" },
+      { name: "Naomi", species: "Cow", personality: "Snooty", gender: "Female" },
+      { name: "Norma", species: "Cow", personality: "Normal", gender: "Female" },
+      { name: "Patty", species: "Cow", personality: "Peppy", gender: "Female" },
+      { name: "Tipper", species: "Cow", personality: "Snooty", gender: "Female" },
+      // Cubs
+      { name: "Bluebear", species: "Cub", personality: "Peppy", gender: "Female" },
+      { name: "Cheri", species: "Cub", personality: "Peppy", gender: "Female" },
+      { name: "Judy", species: "Cub", personality: "Snooty", gender: "Female" },
+      { name: "June", species: "Cub", personality: "Normal", gender: "Female" },
+      { name: "Kody", species: "Cub", personality: "Jock", gender: "Male" },
+      { name: "Maple", species: "Cub", personality: "Normal", gender: "Female" },
+      { name: "Olive", species: "Cub", personality: "Normal", gender: "Female" },
+      { name: "Pekoe", species: "Cub", personality: "Normal", gender: "Female" },
+      { name: "Poncho", species: "Cub", personality: "Jock", gender: "Male" },
+      { name: "Pudge", species: "Cub", personality: "Lazy", gender: "Male" },
+      { name: "Stitches", species: "Cub", personality: "Lazy", gender: "Male" },
+      // Deer
+      { name: "Bam", species: "Deer", personality: "Jock", gender: "Male" },
+      { name: "Beau", species: "Deer", personality: "Lazy", gender: "Male" },
+      { name: "Bruce", species: "Deer", personality: "Cranky", gender: "Male" },
+      { name: "Chelsea", species: "Deer", personality: "Normal", gender: "Female" },
+      { name: "Deirdre", species: "Deer", personality: "Sisterly", gender: "Female" },
+      { name: "Diana", species: "Deer", personality: "Snooty", gender: "Female" },
+      { name: "Erik", species: "Deer", personality: "Lazy", gender: "Male" },
+      { name: "Fauna", species: "Deer", personality: "Normal", gender: "Female" },
+      { name: "Fuchsia", species: "Deer", personality: "Sisterly", gender: "Female" },
+      { name: "Lopez", species: "Deer", personality: "Smug", gender: "Male" },
+      { name: "Shino", species: "Deer", personality: "Peppy", gender: "Female" },
+      { name: "Zell", species: "Deer", personality: "Smug", gender: "Male" },
+      // Dogs
+      { name: "Bea", species: "Dog", personality: "Normal", gender: "Female" },
+      { name: "Benjamin", species: "Dog", personality: "Lazy", gender: "Male" },
+      { name: "Biskit", species: "Dog", personality: "Lazy", gender: "Male" },
+      { name: "Bones", species: "Dog", personality: "Lazy", gender: "Male" },
+      { name: "Butch", species: "Dog", personality: "Cranky", gender: "Male" },
+      { name: "Cherry", species: "Dog", personality: "Sisterly", gender: "Female" },
+      { name: "Cookie", species: "Dog", personality: "Peppy", gender: "Female" },
+      { name: "Daisy", species: "Dog", personality: "Normal", gender: "Female" },
+      { name: "Frett", species: "Dog", personality: "Cranky", gender: "Male" },
+      { name: "Goldie", species: "Dog", personality: "Normal", gender: "Female" },
+      { name: "Lucky", species: "Dog", personality: "Lazy", gender: "Male" },
+      { name: "Mac", species: "Dog", personality: "Jock", gender: "Male" },
+      { name: "Marcel", species: "Dog", personality: "Lazy", gender: "Male" },
+      { name: "Maddie", species: "Dog", personality: "Peppy", gender: "Female" },
+      { name: "Portia", species: "Dog", personality: "Snooty", gender: "Female" },
+      { name: "Shep", species: "Dog", personality: "Smug", gender: "Male" },
+      { name: "Walker", species: "Dog", personality: "Lazy", gender: "Male" },
+      // Ducks
+      { name: "Bill", species: "Duck", personality: "Jock", gender: "Male" },
+      { name: "Deena", species: "Duck", personality: "Normal", gender: "Female" },
+      { name: "Derwin", species: "Duck", personality: "Lazy", gender: "Male" },
+      { name: "Drake", species: "Duck", personality: "Lazy", gender: "Male" },
+      { name: "Freckles", species: "Duck", personality: "Peppy", gender: "Female" },
+      { name: "Gloria", species: "Duck", personality: "Snooty", gender: "Female" },
+      { name: "Joey", species: "Duck", personality: "Lazy", gender: "Male" },
+      { name: "Ketchup", species: "Duck", personality: "Peppy", gender: "Female" },
+      { name: "Mallary", species: "Duck", personality: "Snooty", gender: "Female" },
+      { name: "Molly", species: "Duck", personality: "Normal", gender: "Female" },
+      { name: "Pate", species: "Duck", personality: "Peppy", gender: "Female" },
+      { name: "Pompom", species: "Duck", personality: "Peppy", gender: "Female" },
+      { name: "Quillson", species: "Duck", personality: "Smug", gender: "Male" },
+      { name: "Scoot", species: "Duck", personality: "Jock", gender: "Male" },
+      { name: "Weber", species: "Duck", personality: "Lazy", gender: "Male" },
+      // Eagles
+      { name: "Amelia", species: "Eagle", personality: "Snooty", gender: "Female" },
+      { name: "Apollo", species: "Eagle", personality: "Cranky", gender: "Male" },
+      { name: "Avery", species: "Eagle", personality: "Cranky", gender: "Male" },
+      { name: "Buzz", species: "Eagle", personality: "Cranky", gender: "Male" },
+      { name: "Celia", species: "Eagle", personality: "Normal", gender: "Female" },
+      { name: "Frank", species: "Eagle", personality: "Cranky", gender: "Male" },
+      { name: "Keaton", species: "Eagle", personality: "Smug", gender: "Male" },
+      { name: "Pierce", species: "Eagle", personality: "Jock", gender: "Male" },
+      { name: "Sterling", species: "Eagle", personality: "Jock", gender: "Male" },
+      // Elephants
+      { name: "Axel", species: "Elephant", personality: "Jock", gender: "Male" },
+      { name: "Big Top", species: "Elephant", personality: "Lazy", gender: "Male" },
+      { name: "Chai", species: "Elephant", personality: "Peppy", gender: "Female" },
+      { name: "Cyd", species: "Elephant", personality: "Cranky", gender: "Male" },
+      { name: "Dizzy", species: "Elephant", personality: "Lazy", gender: "Male" },
+      { name: "Ellie", species: "Elephant", personality: "Normal", gender: "Female" },
+      { name: "Eloise", species: "Elephant", personality: "Snooty", gender: "Female" },
+      { name: "Margie", species: "Elephant", personality: "Normal", gender: "Female" },
+      { name: "Opal", species: "Elephant", personality: "Snooty", gender: "Female" },
+      { name: "Paolo", species: "Elephant", personality: "Lazy", gender: "Male" },
+      { name: "Tia", species: "Elephant", personality: "Normal", gender: "Female" },
+      // Frogs
+      { name: "Camofrog", species: "Frog", personality: "Cranky", gender: "Male" },
+      { name: "Cousteau", species: "Frog", personality: "Jock", gender: "Male" },
+      { name: "Croque", species: "Frog", personality: "Cranky", gender: "Male" },
+      { name: "Diva", species: "Frog", personality: "Sisterly", gender: "Female" },
+      { name: "Drift", species: "Frog", personality: "Jock", gender: "Male" },
+      { name: "Frobert", species: "Frog", personality: "Jock", gender: "Male" },
+      { name: "Gigi", species: "Frog", personality: "Snooty", gender: "Female" },
+      { name: "Henry", species: "Frog", personality: "Smug", gender: "Male" },
+      { name: "Huck", species: "Frog", personality: "Smug", gender: "Male" },
+      { name: "Jambette", species: "Frog", personality: "Normal", gender: "Female" },
+      { name: "Jeremiah", species: "Frog", personality: "Lazy", gender: "Male" },
+      { name: "Lily", species: "Frog", personality: "Normal", gender: "Female" },
+      { name: "Prince", species: "Frog", personality: "Lazy", gender: "Male" },
+      { name: "Puddles", species: "Frog", personality: "Peppy", gender: "Female" },
+      { name: "Raddle", species: "Frog", personality: "Lazy", gender: "Male" },
+      { name: "Ribbot", species: "Frog", personality: "Jock", gender: "Male" },
+      { name: "Tad", species: "Frog", personality: "Jock", gender: "Male" },
+      // Goats
+      { name: "Billy", species: "Goat", personality: "Jock", gender: "Male" },
+      { name: "Chevre", species: "Goat", personality: "Normal", gender: "Female" },
+      { name: "Gruff", species: "Goat", personality: "Cranky", gender: "Male" },
+      { name: "Kidd", species: "Goat", personality: "Smug", gender: "Male" },
+      { name: "Nan", species: "Goat", personality: "Normal", gender: "Female" },
+      { name: "Pashmina", species: "Goat", personality: "Sisterly", gender: "Female" },
+      { name: "Sherb", species: "Goat", personality: "Lazy", gender: "Male" },
+      { name: "Velma", species: "Goat", personality: "Snooty", gender: "Female" },
+      // Gorillas
+      { name: "Al", species: "Gorilla", personality: "Lazy", gender: "Male" },
+      { name: "Boone", species: "Gorilla", personality: "Jock", gender: "Male" },
+      { name: "Boyd", species: "Gorilla", personality: "Cranky", gender: "Male" },
+      { name: "Cesar", species: "Gorilla", personality: "Cranky", gender: "Male" },
+      { name: "Hans", species: "Gorilla", personality: "Smug", gender: "Male" },
+      { name: "Louie", species: "Gorilla", personality: "Jock", gender: "Male" },
+      { name: "Peewee", species: "Gorilla", personality: "Cranky", gender: "Male" },
+      { name: "Rilla", species: "Gorilla", personality: "Peppy", gender: "Female" },
+      { name: "Rocket", species: "Gorilla", personality: "Sisterly", gender: "Female" },
+      { name: "Violet", species: "Gorilla", personality: "Snooty", gender: "Female" },
+      // Hamsters
+      { name: "Apple", species: "Hamster", personality: "Peppy", gender: "Female" },
+      { name: "Clay", species: "Hamster", personality: "Lazy", gender: "Male" },
+      { name: "Flurry", species: "Hamster", personality: "Normal", gender: "Female" },
+      { name: "Graham", species: "Hamster", personality: "Smug", gender: "Male" },
+      { name: "Hamlet", species: "Hamster", personality: "Jock", gender: "Male" },
+      { name: "Hamphrey", species: "Hamster", personality: "Cranky", gender: "Male" },
+      { name: "Marlo", species: "Hamster", personality: "Cranky", gender: "Male" },
+      { name: "Rodney", species: "Hamster", personality: "Smug", gender: "Male" },
+      { name: "Soleil", species: "Hamster", personality: "Snooty", gender: "Female" },
+      // Hippos
+      { name: "Bertha", species: "Hippo", personality: "Normal", gender: "Female" },
+      { name: "Bitty", species: "Hippo", personality: "Snooty", gender: "Female" },
+      { name: "Biff", species: "Hippo", personality: "Jock", gender: "Male" },
+      { name: "Bubbles", species: "Hippo", personality: "Peppy", gender: "Female" },
+      { name: "Harry", species: "Hippo", personality: "Cranky", gender: "Male" },
+      { name: "Hippeux", species: "Hippo", personality: "Smug", gender: "Male" },
+      { name: "Rocco", species: "Hippo", personality: "Cranky", gender: "Male" },
+      // Horses
+      { name: "Annalise", species: "Horse", personality: "Snooty", gender: "Female" },
+      { name: "Buck", species: "Horse", personality: "Jock", gender: "Male" },
+      { name: "Cleo", species: "Horse", personality: "Snooty", gender: "Female" },
+      { name: "Clyde", species: "Horse", personality: "Lazy", gender: "Male" },
+      { name: "Colton", species: "Horse", personality: "Smug", gender: "Male" },
+      { name: "Ed", species: "Horse", personality: "Smug", gender: "Male" },
+      { name: "Elmer", species: "Horse", personality: "Lazy", gender: "Male" },
+      { name: "Julian", species: "Horse", personality: "Smug", gender: "Male" },
+      { name: "Papi", species: "Horse", personality: "Lazy", gender: "Male" },
+      { name: "Peaches", species: "Horse", personality: "Normal", gender: "Female" },
+      { name: "Reneigh", species: "Horse", personality: "Sisterly", gender: "Female" },
+      { name: "Roscoe", species: "Horse", personality: "Cranky", gender: "Male" },
+      { name: "Savannah", species: "Horse", personality: "Normal", gender: "Female" },
+      { name: "Victoria", species: "Horse", personality: "Peppy", gender: "Female" },
+      { name: "Winnie", species: "Horse", personality: "Peppy", gender: "Female" },
+      // Kangaroos
+      { name: "Astrid", species: "Kangaroo", personality: "Snooty", gender: "Female" },
+      { name: "Carrie", species: "Kangaroo", personality: "Normal", gender: "Female" },
+      { name: "Kitt", species: "Kangaroo", personality: "Normal", gender: "Female" },
+      { name: "Marcie", species: "Kangaroo", personality: "Normal", gender: "Female" },
+      { name: "Mathilda", species: "Kangaroo", personality: "Snooty", gender: "Female" },
+      { name: "Rooney", species: "Kangaroo", personality: "Cranky", gender: "Male" },
+      { name: "Sylvia", species: "Kangaroo", personality: "Sisterly", gender: "Female" },
+      { name: "Walt", species: "Kangaroo", personality: "Cranky", gender: "Male" },
+      // Koalas
+      { name: "Alice", species: "Koala", personality: "Normal", gender: "Female" },
+      { name: "Canberra", species: "Koala", personality: "Sisterly", gender: "Female" },
+      { name: "Eugene", species: "Koala", personality: "Smug", gender: "Male" },
+      { name: "Gonzo", species: "Koala", personality: "Cranky", gender: "Male" },
+      { name: "Lyman", species: "Koala", personality: "Jock", gender: "Male" },
+      { name: "Melba", species: "Koala", personality: "Normal", gender: "Female" },
+      { name: "Ozzie", species: "Koala", personality: "Lazy", gender: "Male" },
+      { name: "Sydney", species: "Koala", personality: "Normal", gender: "Female" },
+      // Lions
+      { name: "Bud", species: "Lion", personality: "Jock", gender: "Male" },
+      { name: "Elvis", species: "Lion", personality: "Cranky", gender: "Male" },
+      { name: "Leopold", species: "Lion", personality: "Smug", gender: "Male" },
+      { name: "Lionel", species: "Lion", personality: "Smug", gender: "Male" },
+      { name: "Mott", species: "Lion", personality: "Jock", gender: "Male" },
+      { name: "Rex", species: "Lion", personality: "Lazy", gender: "Male" },
+      { name: "Rory", species: "Lion", personality: "Jock", gender: "Male" },
+      // Mice
+      { name: "Anicotti", species: "Mouse", personality: "Peppy", gender: "Female" },
+      { name: "Bella", species: "Mouse", personality: "Peppy", gender: "Female" },
+      { name: "Bettina", species: "Mouse", personality: "Normal", gender: "Female" },
+      { name: "Broccolo", species: "Mouse", personality: "Lazy", gender: "Male" },
+      { name: "Chadder", species: "Mouse", personality: "Smug", gender: "Male" },
+      { name: "Dora", species: "Mouse", personality: "Normal", gender: "Female" },
+      { name: "Greta", species: "Mouse", personality: "Snooty", gender: "Female" },
+      { name: "Limberg", species: "Mouse", personality: "Cranky", gender: "Male" },
+      { name: "Moose", species: "Mouse", personality: "Jock", gender: "Male" },
+      { name: "Penelope", species: "Mouse", personality: "Peppy", gender: "Female" },
+      { name: "Petri", species: "Mouse", personality: "Snooty", gender: "Female" },
+      { name: "Rizzo", species: "Mouse", personality: "Cranky", gender: "Male" },
+      { name: "Rod", species: "Mouse", personality: "Jock", gender: "Male" },
+      { name: "Samson", species: "Mouse", personality: "Jock", gender: "Male" },
+      { name: "Bree", species: "Mouse", personality: "Snooty", gender: "Female" },
+      // Monkeys
+      { name: "Deli", species: "Monkey", personality: "Lazy", gender: "Male" },
+      { name: "Elise", species: "Monkey", personality: "Snooty", gender: "Female" },
+      { name: "Flip", species: "Monkey", personality: "Jock", gender: "Male" },
+      { name: "Monty", species: "Monkey", personality: "Cranky", gender: "Male" },
+      { name: "Nana", species: "Monkey", personality: "Normal", gender: "Female" },
+      { name: "Shari", species: "Monkey", personality: "Sisterly", gender: "Female" },
+      { name: "Simon", species: "Monkey", personality: "Lazy", gender: "Male" },
+      { name: "Tammi", species: "Monkey", personality: "Peppy", gender: "Female" },
+      // Octopuses
+      { name: "Cephalobot", species: "Octopus", personality: "Smug", gender: "Male" },
+      { name: "Marina", species: "Octopus", personality: "Normal", gender: "Female" },
+      { name: "Octavian", species: "Octopus", personality: "Cranky", gender: "Male" },
+      { name: "Zucker", species: "Octopus", personality: "Lazy", gender: "Male" },
+      // Ostriches
+      { name: "Blanche", species: "Ostrich", personality: "Snooty", gender: "Female" },
+      { name: "Cranston", species: "Ostrich", personality: "Lazy", gender: "Male" },
+      { name: "Flora", species: "Ostrich", personality: "Peppy", gender: "Female" },
+      { name: "Gladys", species: "Ostrich", personality: "Normal", gender: "Female" },
+      { name: "Julia", species: "Ostrich", personality: "Snooty", gender: "Female" },
+      { name: "Phil", species: "Ostrich", personality: "Smug", gender: "Male" },
+      { name: "Phoebe", species: "Ostrich", personality: "Sisterly", gender: "Female" },
+      { name: "Queenie", species: "Ostrich", personality: "Snooty", gender: "Female" },
+      { name: "Rio", species: "Ostrich", personality: "Peppy", gender: "Female" },
+      { name: "Sandy", species: "Ostrich", personality: "Normal", gender: "Female" },
+      { name: "Sprocket", species: "Ostrich", personality: "Jock", gender: "Male" },
+      // Owls
+      { name: "Blathers", species: "Owl", personality: "Cranky", gender: "Male" },
+      { name: "Bunnie", species: "Owl", personality: "Peppy", gender: "Female" },
+      { name: "Deena", species: "Owl", personality: "Normal", gender: "Female" },
+      { name: "Deirdre", species: "Owl", personality: "Sisterly", gender: "Female" },
+      { name: "Gala", species: "Owl", personality: "Normal", gender: "Female" },
+      { name: "Hoot", species: "Owl", personality: "Cranky", gender: "Male" },
+      { name: "Hopper", species: "Owl", personality: "Cranky", gender: "Male" },
+      { name: "Jingles", species: "Owl", personality: "Lazy", gender: "Male" },
+      { name: "Leila", species: "Owl", personality: "Normal", gender: "Female" },
+      { name: "Oaken", species: "Owl", personality: "Lazy", gender: "Male" },
+      { name: "Tyra", species: "Owl", personality: "Snooty", gender: "Female" },
+      // Penguins
+      { name: "Aurora", species: "Penguin", personality: "Normal", gender: "Female" },
+      { name: "Boomer", species: "Penguin", personality: "Lazy", gender: "Male" },
+      { name: "Cube", species: "Penguin", personality: "Lazy", gender: "Male" },
+      { name: "Flo", species: "Penguin", personality: "Sisterly", gender: "Female" },
+      { name: "Friga", species: "Penguin", personality: "Snooty", gender: "Female" },
+      { name: "Gwen", species: "Penguin", personality: "Snooty", gender: "Female" },
+      { name: "Iggly", species: "Penguin", personality: "Jock", gender: "Male" },
+      { name: "Puck", species: "Penguin", personality: "Lazy", gender: "Male" },
+      { name: "Roald", species: "Penguin", personality: "Jock", gender: "Male" },
+      { name: "Sprinkle", species: "Penguin", personality: "Peppy", gender: "Female" },
+      { name: "Tex", species: "Penguin", personality: "Smug", gender: "Male" },
+      // Pigs
+      { name: "Agnes", species: "Pig", personality: "Sisterly", gender: "Female" },
+      { name: "Boris", species: "Pig", personality: "Cranky", gender: "Male" },
+      { name: "Chops", species: "Pig", personality: "Smug", gender: "Male" },
+      { name: "Cobb", species: "Pig", personality: "Jock", gender: "Male" },
+      { name: "Curly", species: "Pig", personality: "Jock", gender: "Male" },
+      { name: "Gala", species: "Pig", personality: "Normal", gender: "Female" },
+      { name: "Maggie", species: "Pig", personality: "Normal", gender: "Female" },
+      { name: "Rasher", species: "Pig", personality: "Cranky", gender: "Male" },
+      { name: "Truffles", species: "Pig", personality: "Peppy", gender: "Female" },
+      // Rabbits
+      { name: "Bonbon", species: "Rabbit", personality: "Peppy", gender: "Female" },
+      { name: "Bunnie", species: "Rabbit", personality: "Peppy", gender: "Female" },
+      { name: "Coco", species: "Rabbit", personality: "Normal", gender: "Female" },
+      { name: "Doc", species: "Rabbit", personality: "Cranky", gender: "Male" },
+      { name: "Dotty", species: "Rabbit", personality: "Snooty", gender: "Female" },
+      { name: "Hopkins", species: "Rabbit", personality: "Lazy", gender: "Male" },
+      { name: "Ruby", species: "Rabbit", personality: "Peppy", gender: "Female" },
+      { name: "Tiffany", species: "Rabbit", personality: "Snooty", gender: "Female" },
+      // Rhinos
+      { name: "Merengue", species: "Rhino", personality: "Normal", gender: "Female" },
+      { name: "Rhonda", species: "Rhino", personality: "Sisterly", gender: "Female" },
+      // Sheep
+      { name: "Baabara", species: "Sheep", personality: "Snooty", gender: "Female" },
+      { name: "Cashmere", species: "Sheep", personality: "Sisterly", gender: "Female" },
+      { name: "Civet", species: "Sheep", personality: "Normal", gender: "Female" },
+      { name: "Dame", species: "Sheep", personality: "Snooty", gender: "Female" },
+      { name: "Etoile", species: "Sheep", personality: "Snooty", gender: "Female" },
+      { name: "Fruitbert", species: "Sheep", personality: "Lazy", gender: "Male" },
+      { name: "Kiddie", species: "Sheep", personality: "Normal", gender: "Female" },
+      { name: "Liberty", species: "Sheep", personality: "Normal", gender: "Female" },
+      { name: "Mabel", species: "Sheep", personality: "Normal", gender: "Female" },
+      { name: "Timbra", species: "Sheep", personality: "Snooty", gender: "Female" },
+      // Squirrels
+      { name: "Agent S", species: "Squirrel", personality: "Peppy", gender: "Female" },
+      { name: "Blaire", species: "Squirrel", personality: "Snooty", gender: "Female" },
+      { name: "Bushy", species: "Squirrel", personality: "Lazy", gender: "Male" },
+      { name: "Cammie", species: "Squirrel", personality: "Normal", gender: "Female" },
+      { name: "Chestnuts", species: "Squirrel", personality: "Lazy", gender: "Male" },
+      { name: "Hazel", species: "Squirrel", personality: "Sisterly", gender: "Female" },
+      { name: "Hoagie", species: "Squirrel", personality: "Lazy", gender: "Male" },
+      { name: "Joey", species: "Squirrel", personality: "Jock", gender: "Male" },
+      { name: "Marshal", species: "Squirrel", personality: "Smug", gender: "Male" },
+      { name: "Mina", species: "Squirrel", personality: "Peppy", gender: "Female" },
+      { name: "Nutty", species: "Squirrel", personality: "Lazy", gender: "Male" },
+      { name: "Pecan", species: "Squirrel", personality: "Lazy", gender: "Male" },
+      { name: "Poppy", species: "Squirrel", personality: "Peppy", gender: "Female" },
+      { name: "Punchy", species: "Squirrel", personality: "Lazy", gender: "Male" },
+      { name: "Sally", species: "Squirrel", personality: "Peppy", gender: "Female" },
+      { name: "Samson", species: "Squirrel", personality: "Jock", gender: "Male" },
+      { name: "Sheldon", species: "Squirrel", personality: "Jock", gender: "Male" },
+      { name: "Shirely", species: "Squirrel", personality: "Peppy", gender: "Female" },
+      { name: "Sly", species: "Squirrel", personality: "Cranky", gender: "Male" },
+      { name: "Teena", species: "Squirrel", personality: "Sisterly", gender: "Female" },
+      // Tigers
+      { name: "Rajah", species: "Tiger", personality: "Cranky", gender: "Male" },
+      { name: "Rolf", species: "Tiger", personality: "Cranky", gender: "Male" },
+      { name: "Rudy", species: "Tiger", personality: "Jock", gender: "Male" },
+      // Wolves
+      { name: "Audie", species: "Wolf", personality: "Peppy", gender: "Female" },
+      { name: "Bianca", species: "Wolf", personality: "Sisterly", gender: "Female" },
+      { name: "Freya", species: "Wolf", personality: "Sisterly", gender: "Female" },
+      { name: "Lobo", species: "Wolf", personality: "Cranky", gender: "Male" },
+      { name: "Rolf", species: "Wolf", personality: "Cranky", gender: "Male" },
+      { name: "Tarou", species: "Wolf", personality: "Lazy", gender: "Male" },
+      { name: "Vivian", species: "Wolf", personality: "Snooty", gender: "Female" },
+      { name: "Wolfgang", species: "Wolf", personality: "Cranky", gender: "Male" },
+      { name: "Whitney", species: "Wolf", personality: "Snooty", gender: "Female" }
+    ];
+
+    // Generate hints based on villager characteristics
+    function generateHints(villager) {
+      const hints = [];
+      
+      hints.push(`I'm a ${villager.species} villager`);
+      hints.push(`I have a ${villager.personality} personality`);
+      hints.push(`I am ${villager.gender}`);
+      
+      const speciesCount = villagers.filter(v => v.species === villager.species).length;
+      hints.push(`There are ${speciesCount} ${villager.species} villagers in the game`);
+      
+      const personalityCount = villagers.filter(v => v.personality === villager.personality).length;
+      hints.push(`There are ${personalityCount} villagers with my personality type`);
+      
+      return hints;
+    }
+
+    let currentVillager = null;
+    let hintsRevealed = 0;
+    let score = 0;
+    let streak = 0;
+    let gameActive = false;
+    const guesses = new Set();
+
+    function startNewGame() {
+      currentVillager = villagers[Math.floor(Math.random() * villagers.length)];
+      hintsRevealed = 0;
+      gameActive = true;
+      guesses.clear();
+      
+      document.getElementById('hints-grid').innerHTML = '';
+      document.getElementById('guess-input').value = '';
+      document.getElementById('guess-input').disabled = false;
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('hint-btn').disabled = false;
+      document.getElementById('result-container').classList.add('hidden');
+      document.getElementById('guesses-container').innerHTML = '';
+      
+      updateHintButton();
+      updateHintDisplay();
+    }
+
+    function updateHintButton() {
+      const btn = document.getElementById('hint-btn');
+      if (hintsRevealed >= 4) {
+        btn.textContent = '🔒 All Hints Revealed';
+        btn.disabled = true;
+      } else {
+        btn.textContent = '��� Reveal Hint';
+        btn.disabled = false;
+      }
+    }
+
+    function updateHintDisplay() {
+      const count = document.getElementById('hints-count');
+      count.textContent = `${hintsRevealed}/4`;
+    }
+
+    function revealHint() {
+      if (hintsRevealed >= 4 || !gameActive) return;
+      
+      const hints = generateHints(currentVillager);
+      const hintsGrid = document.getElementById('hints-grid');
+      
+      if (hintsRevealed === 0) {
+        hintsGrid.innerHTML = '';
+      }
+      
+      const hintEl = document.createElement('div');
+      hintEl.className = 'hint-card p-3 rounded-lg text-sm font-semibold text-center';
+      hintEl.style.backgroundColor = '#c8e6c9';
+      hintEl.style.color = '#2e7d32';
+      hintEl.innerHTML = hints[hintsRevealed];
+      hintsGrid.appendChild(hintEl);
+      
+      hintsRevealed++;
+      updateHintButton();
+      updateHintDisplay();
+    }
+
+    function updateSuggestions(input) {
+      const suggestionsDiv = document.getElementById('suggestions');
+      
+      if (input.length === 0) {
+        suggestionsDiv.classList.add('hidden');
+        return;
+      }
+      
+      const matches = villagers
+        .filter(v => v.name.toLowerCase().startsWith(input.toLowerCase()) && !guesses.has(v.name))
+        .slice(0, 5);
+      
+      if (matches.length === 0) {
+        suggestionsDiv.classList.add('hidden');
+        return;
+      }
+      
+      suggestionsDiv.innerHTML = matches.map(v => 
+        `<div class="suggestion-item p-2 cursor-pointer text-left" onclick="selectVillager('${v.name}')">${v.name}</div>`
+      ).join('');
+      
+      suggestionsDiv.classList.remove('hidden');
+    }
+
+    function selectVillager(name) {
+      document.getElementById('guess-input').value = name;
+      document.getElementById('suggestions').classList.add('hidden');
+    }
+
+    function submitGuess() {
+      const input = document.getElementById('guess-input').value.trim();
+      
+      if (!input) return;
+      
+      const villager = villagers.find(v => v.name.toLowerCase() === input.toLowerCase());
+      
+      if (!villager) {
+        alert('Villager not found! Check the spelling.');
+        return;
+      }
+      
+      if (guesses.has(villager.name)) {
+        alert('You already guessed that villager!');
+        return;
+      }
+      
+      guesses.add(villager.name);
+      
+      // Add to guesses history
+      const guessesContainer = document.getElementById('guesses-container');
+      const guessEl = document.createElement('div');
+      guessEl.className = 'p-3 rounded-lg text-center font-semibold';
+      guessEl.style.backgroundColor = villager.name === currentVillager.name ? '#c8e6c9' : '#ffccbc';
+      guessEl.style.color = villager.name === currentVillager.name ? '#2e7d32' : '#d32f2f';
+      guessEl.textContent = villager.name === currentVillager.name ? `✅ Correct! It's ${villager.name}!` : `❌ ${villager.name} - Not correct!`;
+      guessesContainer.insertBefore(guessEl, guessesContainer.firstChild);
+      
+      if (villager.name === currentVillager.name) {
+        endGame(true, hintsRevealed);
+      } else {
+        document.getElementById('guess-input').value = '';
+      }
+    }
+
+    function endGame(won, hintsUsed) {
+      gameActive = false;
+      document.getElementById('guess-input').disabled = true;
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('hint-btn').disabled = true;
+      
+      const resultContainer = document.getElementById('result-container');
+      const resultIcon = document.getElementById('result-icon');
+      const resultTitle = document.getElementById('result-title');
+      const resultMessage = document.getElementById('result-message');
+      
+      if (won) {
+        const points = Math.max(100 - (hintsUsed * 20), 10);
+        score += points;
+        streak++;
+        
+        resultIcon.textContent = '🎉';
+        resultTitle.textContent = `You Got It!`;
+        resultMessage.textContent = `${currentVillager.name} is a ${currentVillager.personality} ${currentVillager.species}! +${points} points!`;
+        resultMessage.style.color = '#2e7d32';
+      } else {
+        streak = 0;
+        resultIcon.textContent = '😿';
+        resultTitle.textContent = `Game Over!`;
+        resultMessage.textContent = `It was ${currentVillager.name}, a ${currentVillager.personality} ${currentVillager.species}!`;
+        resultMessage.style.color = '#d32f2f';
+      }
+      
+      document.getElementById('score').textContent = score;
+      document.getElementById('streak').textContent = streak;
+      resultContainer.classList.remove('hidden');
+    }
+
+    function giveUp() {
+      if (gameActive) {
+        endGame(false, hintsRevealed);
+      }
+    }
+
+    // Event listeners
+    document.getElementById('hint-btn').addEventListener('click', revealHint);
+    document.getElementById('submit-btn').addEventListener('click', submitGuess);
+    document.getElementById('guess-input').addEventListener('keypress', e => {
+      if (e.key === 'Enter') submitGuess();
+    });
+    document.getElementById('guess-input').addEventListener('input', e => {
+      updateSuggestions(e.target.value);
+    });
+    document.getElementById('giveup-btn').addEventListener('click', giveUp);
+    document.getElementById('next-btn').addEventListener('click', startNewGame);
+
+    // Element SDK integration
+    window.elementSdk.init({
+      defaultConfig,
+      onConfigChange: async (cfg) => {
+        config = cfg;
+        document.getElementById('game-title').textContent = config.game_title || defaultConfig.game_title;
+        document.getElementById('instructions-text').textContent = config.instructions_text || defaultConfig.instructions_text;
+      },
+      mapToCapabilities: () => ({
+        recolorables: [],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      }),
+      mapToEditPanelValues: () => new Map([
+        ['game_title', config.game_title || defaultConfig.game_title],
+        ['instructions_text', config.instructions_text || defaultConfig.instructions_text]
+      ])
+    });
+
+    // Start first game
+    startNewGame();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c9e11e5535dc44a',t:'MTc3MDQxNjc5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
